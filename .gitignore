@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / compiled files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+*.egg-info/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.bak
+*~
+
+# Logs and databases
+*.log
+*.sqlite3
+*.db
+
+# Environment variables
+.env
+
+# Uploaded files
+media/
+static_collected/
+
+# Build artifacts
+dist/
+build/
+
+# Other temporary files
+tmp/
+temp/
+.python-version
