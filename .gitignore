@@ -37,3 +37,5 @@ build/
 tmp/
 temp/
 .python-version
+
+.DS_store

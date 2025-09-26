@@ -17,7 +17,6 @@ class GPT:
         print("Messages to send to GPT:", messages)
         
         def map_to_api_messages(message):
-            print(" >> Mapping message: Type", type(message))
             return {"role": message.source, "content": message.msg}
         
         api_messages = list(map(map_to_api_messages, messages))
@@ -31,7 +30,7 @@ class GPT:
             max_completion_tokens=512,
         )
 
-        print("result content:", chat_completion.choices[0].message.content)
+        print("Full chat completion response:", chat_completion.model_dump())
         
         return Message(
             msg=chat_completion.choices[0].message.content,
