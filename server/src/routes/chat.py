@@ -1,4 +1,4 @@
-from fastapi import APIRouter, WebSocket,  Request, HTTPException, WebSocketDisconnect, params
+from fastapi import APIRouter, WebSocket, Request, HTTPException, WebSocketDisconnect, params, Form
 from redis.commands.json.path import Path
 import uuid
 
@@ -21,7 +21,7 @@ chat = APIRouter()
 # @access  Public
 
 @chat.post("/token")
-async def token_generator(name: str, request: Request):
+async def token_generator(name: str = Form()):
     if name == "":
         raise HTTPException(status_code=400, detail={
             "loc": "name",  "msg": "Enter a valid name"})
@@ -29,8 +29,6 @@ async def token_generator(name: str, request: Request):
     token = str(uuid.uuid4())
 
     # Create new chat session
-
-
     chat_session = Chat(
         token=token,
         messages=[],
@@ -47,7 +45,7 @@ async def token_generator(name: str, request: Request):
     await redis_client.expire(str(token), 3600)
 
 
-    return chat_session.dict()
+    return chat_session.model_dump()
 
 
 # @route   GET /chat_history
