@@ -145,6 +145,7 @@ export const useChat = () => {
     }
 
     setConnectionStatus('connecting')
+    const connectionStartTime = Date.now()
     
     try {
       ws.current = new WebSocket(`${WS_URL}/chat?token=${chatToken}`)
@@ -191,10 +192,15 @@ export const useChat = () => {
         setConnectionStatus('disconnected')
         
         // Check if closure was due to token expiration or authentication issues
+        const connectionDuration = Date.now() - connectionStartTime
+        const wasQuickClose = connectionDuration < 1000 // Closed within 1 second
+        
         // Server uses 1008 (WS_1008_POLICY_VIOLATION) for invalid/expired tokens
-        if (event.code === 1008) {
-          console.log('WebSocket closed due to token/auth issues (code 1008)', event.reason)
-          // Server sends "Session not authenticated or expired token" for expired tokens
+        // or 1006 (Abnormal Closure) when connection is abruptly closed due to auth issues
+        // Also treat quick 1006 closures as auth failures (token expired before connection established)
+        if (event.code === 1008 || (event.code === 1006 && wasQuickClose)) {
+          console.log(`WebSocket closed due to token/auth issues (code ${event.code}, duration: ${connectionDuration}ms)`, event.reason)
+          // Treat both 1008 and quick 1006 as token expiration
           handleTokenExpiration()
           return
         }
