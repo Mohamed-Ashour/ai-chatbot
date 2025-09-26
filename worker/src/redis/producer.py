@@ -10,3 +10,9 @@ class Producer:
 
         except Exception as e:
             print(f"Error sending msg to stream => {e}")
+            
+    async def expire(self, stream_channel, seconds: int):
+        try:
+            result = await self.redis_client.expire(stream_channel, seconds)
+        except Exception as e:
+            print(f"Error setting expiration for stream => {e}")

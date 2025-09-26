@@ -37,6 +37,9 @@ async def process_message(text, token, cache: Cache, gpt: GPT, producer: Produce
     stream_data = {"message": gpt_message.msg}
     print("Sending GPT response to stream:", stream_data)
     await producer.add_to_stream(stream_data, f"response_channel_{token}")
+    
+    # stream expire in 1 hour
+    await producer.expire(f"response_channel_{token}", 3600)
 
     # add new message and gpt response to chat history
     await cache.add_messages_to_cache(token=token, messages=[new_message.model_dump(), gpt_message.model_dump()])
