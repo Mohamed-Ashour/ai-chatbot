@@ -1,0 +1,37 @@
+# Development Dockerfile for Next.js client
+FROM node:18-alpine
+
+# Install dependencies for development
+RUN apk add --no-cache libc6-compat
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* ./
+
+# Install dependencies
+RUN \
+  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
+  elif [ -f package-lock.json ]; then npm ci; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
+  else echo "Lockfile not found." && exit 1; \
+  fi
+
+# Copy source code
+COPY . .
+
+# Set environment variables
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=development
+
+# Expose port
+EXPOSE 3000
+
+# Start development server
+CMD \
+  if [ -f yarn.lock ]; then yarn dev; \
+  elif [ -f package-lock.json ]; then npm run dev; \
+  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm dev; \
+  else echo "Lockfile not found." && exit 1; \
+  fi

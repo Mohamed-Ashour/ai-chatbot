@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  # Redis Database
+  redis:
+    image: redis:7-alpine
+    container_name: chatbot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - chatbot-network
+
+  # FastAPI Server
+  server:
+    build: 
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: chatbot-server
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGINS=http://localhost:3000,http://client:3000
+      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
+      - TOKEN_EXPIRY_HOURS=${TOKEN_EXPIRY_HOURS:-1}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./server:/app
+    networks:
+      - chatbot-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AI Worker
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: chatbot-worker
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./worker:/app
+    networks:
+      - chatbot-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import redis; redis.Redis.from_url('redis://redis:6379').ping()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Next.js Client  
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: chatbot-client
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+      - NODE_ENV=production
+    depends_on:
+      - server
+    networks:
+      - chatbot-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Development Client (for development mode)
+  client-dev:
+    build:
+      context: ./client
+      dockerfile: Dockerfile.dev
+    container_name: chatbot-client-dev
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+      - NODE_ENV=development
+    depends_on:
+      - server
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - chatbot-network
+    profiles:
+      - dev
+
+volumes:
+  redis_data:
+    driver: local
+
+networks:
+  chatbot-network:
+    driver: bridge

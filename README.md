@@ -81,11 +81,102 @@ fullstack-ai-chatbot/
 
 ## 🚀 Quick Start
 
+### Choose Your Setup Method
+
+**🐳 Docker (Recommended)**: Containerized setup with all dependencies
+**📦 Local Setup**: Traditional local development environment
+
+---
+
+## 🐳 Docker Setup (Recommended)
+
+### Prerequisites
+- **Docker** and **Docker Compose** installed
+- **Groq API Key** (free API for AI responses)
+
+### 1. Clone and Configure
+
+```bash
+git clone <your-repo-url>
+cd fullstack-ai-chatbot
+
+# Copy environment file and edit with your API keys
+cp .env.docker .env
+# Edit .env with your GROQ_API_KEY
+```
+
+### 2. Start the Application
+
+```bash
+# Start all services (Redis, Server, Worker, Client)
+./docker-start.sh
+
+# Or use Docker Compose directly
+docker-compose up -d --build
+```
+
+✅ **All services will be running**:
+- 🌐 **Client**: http://localhost:3000
+- 🚀 **Server**: http://localhost:8000  
+- 🔴 **Redis**: localhost:6379
+- 📖 **API Docs**: http://localhost:8000/docs
+
+### 3. Start Chatting! 💬
+
+1. Open http://localhost:3000
+2. Click "Get Started"
+3. Enter your name
+4. Chat with the AI!
+
+### Docker Management Commands
+
+```bash
+# Show service status and logs
+./docker-start.sh status
+./docker-start.sh logs
+
+# Restart services
+./docker-start.sh restart
+
+# Stop all services
+./docker-start.sh stop
+
+# Development mode (with hot reload)
+./docker-start.sh dev
+
+# Clean up everything
+./docker-start.sh clean
+```
+
+### Docker Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   Docker Network                        │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐      │
+│  │   Client    │  │   Server    │  │   Worker    │      │
+│  │  (Next.js)  │  │  (FastAPI)  │  │ (AI Proc.)  │      │
+│  │    :3000    │  │    :8000    │  │             │      │
+│  └─────────────┘  └─────────────┘  └─────────────┘      │
+│         │                 │                 │            │
+│         └─────────────────┼─────────────────┘            │
+│                           │                              │
+│                  ┌─────────────┐                         │
+│                  │    Redis    │                         │
+│                  │    :6379    │                         │
+│                  └─────────────┘                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📦 Local Setup
+
 ### Prerequisites
 - **Python 3.8+** with pip
 - **Node.js 18+** with npm
 - **Redis** instance (local or cloud)
-- **OpenAI API Key** (for AI responses)
+- **Groq API Key** (free API for AI responses)
 
 ### 1. Environment Setup
 
