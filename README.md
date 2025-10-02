@@ -276,25 +276,79 @@ NEXT_PUBLIC_WS_URL=ws://localhost:3500
 
 ## 🐞 Troubleshooting
 
-### CORS Issues
+### 🐳 Docker Issues
+
+#### Service Won't Start
+```bash
+# Check service logs
+docker-compose logs [service-name]
+
+# Check service status
+docker-compose ps
+
+# Restart specific service
+docker-compose restart [service-name]
+```
+
+#### Environment Variables
+```bash
+# Verify environment file exists
+ls -la .env
+
+# Check loaded environment in container
+docker-compose exec server printenv | grep API
+```
+
+#### Port Conflicts
+```bash
+# Check what's using ports
+lsof -i :3000
+lsof -i :8000
+lsof -i :6379
+
+# Stop conflicting services
+./docker-start.sh stop
+```
+
+#### Redis Connection Issues
+```bash
+# Test Redis connectivity
+docker-compose exec redis redis-cli ping
+
+# Check Redis logs
+docker-compose logs redis
+```
+
+#### Build Issues
+```bash
+# Clear Docker cache and rebuild
+./docker-start.sh clean
+docker system prune -a
+./docker-start.sh rebuild
+```
+
+### 📦 Local Setup Issues
+
+#### CORS Issues
 - ✅ **Fixed**: CORS is now properly configured for development
 - 🔧 The server allows all origins in development mode
 - 🔒 Production mode has restrictive CORS settings
 
-### Connection Issues
+#### Connection Issues
 ```bash
 # Test server connection
-curl http://localhost:3500/test
+curl http://localhost:8000/health
 
 # Test token generation
-curl -X POST -F "name=TestUser" http://localhost:3500/token
+curl -X POST -F "name=TestUser" http://localhost:8000/token
 ```
 
-### Common Solutions
+#### Common Solutions
 - **Server won't start**: Check Redis connection and credentials
 - **Client can't connect**: Ensure server is running first
 - **WebSocket errors**: Verify token is valid and not expired
 - **Build errors**: Run `npm install` in client directory
+- **API Key errors**: Check GROQ_API_KEY in environment file
 
 ## 🧪 Testing
 
@@ -388,7 +442,63 @@ npm run dev
 
 ## 🚀 Deployment
 
-### Production Checklist
+### 🐳 Docker Deployment (Recommended)
+
+#### Quick Production Deployment
+
+```bash
+# 1. Prepare production files
+./docker-deploy.sh staging latest prepare
+
+# 2. Configure environment
+cp .env.production.template .env.production
+# Edit .env.production with your production values
+
+# 3. Deploy to staging
+./docker-deploy.sh staging v1.0.0 deploy
+
+# 4. Deploy to production  
+./docker-deploy.sh production v1.0.0 deploy
+```
+
+#### Docker Compose Production
+
+The deployment script creates an optimized `docker-compose.prod.yml` with:
+- **Resource limits** for each service
+- **Health checks** for all containers
+- **Restart policies** for high availability
+- **Multi-replica scaling** for server and worker
+- **Production-ready** Redis configuration
+
+```yaml
+services:
+  server:
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1gb
+          cpus: '1.0'
+  
+  worker:
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 1gb
+          cpus: '1.0'
+```
+
+#### Container Registry
+
+```bash
+# Build and push to your registry
+export DOCKER_REGISTRY=your-registry.com
+./docker-deploy.sh production v1.0.0 build
+./docker-deploy.sh production v1.0.0 push
+```
+
+### 📦 Manual Deployment
 
 #### Server
 ```bash
@@ -397,13 +507,13 @@ export APP_ENV=production
 export REDIS_URL=your_production_redis
 
 # Use Gunicorn + Uvicorn for production
-gunicorn main:api -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:3500
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```
 
 #### Worker  
 ```bash
-# Ensure OpenAI API key is set
-export OPENAI_API_KEY=your_production_key
+# Ensure Groq API key is set
+export GROQ_API_KEY=your_production_key
 
 # Run worker with process manager (PM2, systemd, etc.)
 python main.py
@@ -417,6 +527,29 @@ npm run build
 # Deploy to Vercel/Netlify/etc.
 # Update API URLs for production
 ```
+
+### 🌐 Cloud Deployment Options
+
+#### Docker Swarm
+```bash
+# Initialize swarm
+docker swarm init
+
+# Deploy stack
+docker stack deploy -c docker-compose.prod.yml chatbot
+```
+
+#### Kubernetes
+```bash
+# Convert docker-compose to k8s (using kompose)
+kompose convert -f docker-compose.prod.yml
+kubectl apply -f .
+```
+
+#### AWS ECS / Azure Container Instances
+- Use the production Docker images
+- Configure environment variables
+- Set up load balancer for multiple replicas
 
 ## 🔄 Recent Updates
 
