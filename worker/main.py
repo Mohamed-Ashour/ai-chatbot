@@ -10,9 +10,7 @@ import traceback
 
 import asyncio
 
-
 async def process_message(text, token, cache: Cache, gpt: GPT, producer: Producer):
-
     new_message = Message(
         msg=text,
         source=SourceEnum.user
@@ -47,7 +45,6 @@ async def process_message(text, token, cache: Cache, gpt: GPT, producer: Produce
     # add new message and gpt response to chat history
     await cache.add_messages_to_cache(token=token, messages=[new_message.model_dump(), gpt_message.model_dump()])
 
-
 async def main():
     redis = Redis()
     redis_client = await redis.create_connection()
@@ -55,7 +52,6 @@ async def main():
     gpt = GPT()
     consumer = StreamConsumer(redis_client)
     producer = Producer(redis_client)
-
 
     print("Stream consumer started")
     print("Stream waiting for new messages (Press Ctrl+C to stop)")
@@ -87,7 +83,6 @@ async def main():
             print("Redis connection closed.")
         except Exception as e:
             print(f"Error closing Redis connection: {e}")
-
 
 if __name__ == "__main__":
     try:

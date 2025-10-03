@@ -1,0 +1,4 @@
+# Test dependencies for the worker component
+pytest==7.4.4
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0

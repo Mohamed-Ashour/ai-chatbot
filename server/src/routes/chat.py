@@ -10,7 +10,6 @@ from src.socket.connection import ConnectionManager
 from src.socket.utils import get_token
 from src.schema.chat import Chat
 
-
 manager = ConnectionManager()
 redis = Redis()
 
@@ -46,7 +45,6 @@ async def token_generator(name: str = Form()):
 
     return chat_session.model_dump()
 
-
 # @route   GET /chat_history
 # @desc    return chat history for a given token
 # @access  Public
@@ -64,7 +62,6 @@ async def chat_history(request: Request, token: str):
     else:
         return data
 
-
 # @route   Websocket /chat
 # @desc    Socket for chatbot
 # @access  Public
@@ -78,7 +75,6 @@ async def websocket_endpoint(websocket: WebSocket, token=Depends(get_token)):
 
     message_channel = "message_channel"
     response_channel = f"response_channel_{token}"
-
 
     try:
         while True:
@@ -96,7 +92,6 @@ async def websocket_endpoint(websocket: WebSocket, token=Depends(get_token)):
                         await consumer.delete_message(stream_channel=response_channel, message_id=message_id)
 
             print("stream consumed", response)
-
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)

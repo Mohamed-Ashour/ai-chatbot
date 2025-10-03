@@ -24,7 +24,6 @@ api.add_middleware(
 
 api.include_router(chat)
 
-
 @api.get("/test")
 async def root():
     return {"msg": "API is Online"}
@@ -32,7 +31,6 @@ async def root():
 @api.get("/health")
 async def health_check():
     return {"status": "healthy", "service": "ai-chatbot-server"}
-
 
 if __name__ == "__main__":
     if os.environ.get('APP_ENV') == "development":
