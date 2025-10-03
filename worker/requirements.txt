@@ -1,6 +1,4 @@
-redis[hiredis]==5.0.1
-python-dotenv==1.0.0
-pydantic==2.5.0
-groq==0.4.1
-asyncio==3.4.3
-traceback2==1.4.0
+redis[hiredis]==5.2.0
+python-dotenv==1.0.1
+pydantic==2.10.1
+groq==0.32.0

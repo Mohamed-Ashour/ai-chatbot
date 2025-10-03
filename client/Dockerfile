@@ -1,5 +1,5 @@
 # Multi-stage build for Next.js client
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -63,6 +63,11 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+
+# Install curl for health checks
+USER root
+RUN apk add --no-cache curl
+USER nextjs
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \

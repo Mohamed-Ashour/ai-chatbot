@@ -1,4 +1,4 @@
-from fastapi import APIRouter, WebSocket, Request, HTTPException, WebSocketDisconnect, params, Form
+from fastapi import APIRouter, WebSocket, Request, HTTPException, WebSocketDisconnect, Depends, Form
 from redis.commands.json.path import Path
 import uuid
 
@@ -36,14 +36,13 @@ async def token_generator(name: str = Form()):
     )
 
     redis_client = await redis.create_connection()
-    
-    # Store chat session in redis as JSON with the token as key 
+
+    # Store chat session in redis as JSON with the token as key
     result = await redis_client.json().set(str(token), Path.root_path(), chat_session.model_dump())
     print(f"Chat session created with token: {token}, result: {result}")
-    
+
     # Set a timeout for redis data
     await redis_client.expire(str(token), 3600)
-
 
     return chat_session.model_dump()
 
@@ -55,7 +54,7 @@ async def token_generator(name: str = Form()):
 @chat.get("/chat_history")
 async def chat_history(request: Request, token: str):
     redis_client = await redis.create_connection()
-    
+
     cache = Cache(redis_client)
     data = await cache.get_chat_history(token)
 
@@ -71,12 +70,12 @@ async def chat_history(request: Request, token: str):
 # @access  Public
 
 @chat.websocket("/chat")
-async def websocket_endpoint(websocket: WebSocket, token: str = params.Depends(get_token)):
+async def websocket_endpoint(websocket: WebSocket, token=Depends(get_token)):
     await manager.connect(websocket)
     redis_client = await redis.create_connection()
     producer = Producer(redis_client)
     consumer = StreamConsumer(redis_client)
-    
+
     message_channel = "message_channel"
     response_channel = f"response_channel_{token}"
 
@@ -91,6 +90,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = params.Depends(g
             for stream, messages in response:
                     for message_id, message_data in messages:
                         message_text = message_data[b'message'].decode('utf-8')
+                        print("Sending message to websocket:", message_text)
                         await manager.send_personal_message(message_text, websocket)
                         # Delete message from queue after it has been processed
                         await consumer.delete_message(stream_channel=response_channel, message_id=message_id)

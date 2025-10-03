@@ -4,32 +4,35 @@ from src.schema.chat import Message
 from src.model.gpt import GPT
 from src.redis.stream import StreamConsumer
 from src.redis.producer import Producer
+from src.schema.chat import SourceEnum
+
 import traceback
 
 import asyncio
 
 
 async def process_message(text, token, cache: Cache, gpt: GPT, producer: Producer):
+
     new_message = Message(
         msg=text,
-        source="user"
+        source=SourceEnum.user
     )
     print("Processing message:", new_message, "for token:", token)
-    
+
     # get chat history (only last 5 messages)
     chat_history = await cache.get_chat_history(token=token, limit=10)
     if not chat_history:
         print("Session expired for token:", token)
         return
-        
+
     # convert chat history messages to Message objects
     history_messages = [Message(**msg) for msg in chat_history['messages']]
-    
+
     # add new message to history messages
     all_messages = history_messages + [new_message]
-    
+
     print("All messages:", all_messages)
-    
+
     # send all messages to gpt model
     gpt_message = await gpt.query(messages=all_messages)
 
@@ -37,13 +40,13 @@ async def process_message(text, token, cache: Cache, gpt: GPT, producer: Produce
     stream_data = {"message": gpt_message.msg}
     print("Sending GPT response to stream:", stream_data)
     await producer.add_to_stream(stream_data, f"response_channel_{token}")
-    
+
     # stream expire in 1 hour
     await producer.expire(f"response_channel_{token}", 3600)
 
     # add new message and gpt response to chat history
     await cache.add_messages_to_cache(token=token, messages=[new_message.model_dump(), gpt_message.model_dump()])
-    
+
 
 async def main():
     redis = Redis()
@@ -69,7 +72,7 @@ async def main():
 
                         # Delete message from queue after it has been processed
                         await consumer.delete_message(stream_channel="message_channel", message_id=message_id)
-                        
+
     except KeyboardInterrupt:
         print("\nReceived interrupt signal, shutting down gracefully...")
     except Exception as e:
@@ -84,8 +87,8 @@ async def main():
             print("Redis connection closed.")
         except Exception as e:
             print(f"Error closing Redis connection: {e}")
-    
-    
+
+
 if __name__ == "__main__":
     try:
         asyncio.run(main())

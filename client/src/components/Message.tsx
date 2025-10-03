@@ -13,10 +13,9 @@ import 'highlight.js/styles/github-dark.css'
 
 interface MessageProps {
   message: MessageType
-  isLast?: boolean
 }
 
-export function Message({ message, isLast = false }: MessageProps) {
+export function Message({ message }: MessageProps) {
   const isUser = message.isUser
 
   return (

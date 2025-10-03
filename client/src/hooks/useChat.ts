@@ -6,20 +6,17 @@ import { Message, ConnectionStatus } from '@/types/chat'
 import { generateId } from '@/lib/utils'
 import { saveSession, loadSession, clearSession } from '@/lib/session'
 
-const SERVER_URL = process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3500'
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3500'
-
-interface UseChatReturn {
-  messages: Message[]
-  connectionStatus: ConnectionStatus
-  sendMessage: (content: string) => void
-  isTyping: boolean
-  connect: (name: string) => Promise<void>
-  disconnect: () => void
-  userName: string | null
-  hasValidSession: boolean
-  isRestoringSession: boolean
+// Server message format
+interface ServerMessage {
+  id?: string
+  msg: string
+  timestamp: string
+  source: 'user' | 'assistant'
 }
+
+const SERVER_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000'
+
 
 export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([])
@@ -125,7 +122,7 @@ export const useChat = () => {
       console.log('Chat history loaded:', data.messages?.length || 0, 'messages')
       
       // Convert server message format to frontend format
-      const messages: Message[] = data.messages?.map((msg: any) => ({
+      const messages: Message[] = data.messages?.map((msg: ServerMessage) => ({
         id: msg.id || generateId(),
         content: msg.msg,
         timestamp: new Date(msg.timestamp),
@@ -219,7 +216,7 @@ export const useChat = () => {
       setConnectionStatus('error')
       toast.error('Failed to connect to chat server')
     }
-  }, [])
+  }, [handleTokenExpiration])
 
   // Initialize session on mount and auto-reconnect
   useEffect(() => {
@@ -273,7 +270,7 @@ export const useChat = () => {
     }
     
     restoreSessionWithHistory()
-  }, [connectWebSocket])
+  }, [connectWebSocket, handleTokenExpiration])
 
   const connect = useCallback(async (name: string) => {
     try {

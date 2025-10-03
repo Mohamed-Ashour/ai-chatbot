@@ -50,7 +50,12 @@ check_docker() {
 # Build and start services
 start_services() {
     log_info "Building and starting AI Chatbot services..."
-    docker-compose up -d --build
+    docker compose up -d --build
+    
+    # Clean up dangling images after build
+    log_info "Cleaning up dangling images..."
+    docker image prune -f > /dev/null 2>&1 || true
+    
     log_success "Services started successfully!"
     log_info "Client: http://localhost:3000"
     log_info "Server: http://localhost:8000"
@@ -60,7 +65,12 @@ start_services() {
 # Start development mode
 start_dev() {
     log_info "Starting development mode with hot reload..."
-    docker-compose --profile dev up -d --build
+    docker compose --profile dev up -d --build
+    
+    # Clean up dangling images after build
+    log_info "Cleaning up dangling images..."
+    docker image prune -f > /dev/null 2>&1 || true
+    
     log_success "Development services started!"
     log_info "Production Client: http://localhost:3000"
     log_info "Development Client: http://localhost:3001"
@@ -70,22 +80,27 @@ start_dev() {
 # Rebuild all services
 rebuild_services() {
     log_info "Rebuilding all services from scratch..."
-    docker-compose down
-    docker-compose build --no-cache
-    docker-compose up -d
+    docker compose down
+    docker compose build --no-cache
+    docker compose up -d
+    
+    # Clean up dangling images after build
+    log_info "Cleaning up dangling images..."
+    docker image prune -f > /dev/null 2>&1 || true
+    
     log_success "Services rebuilt and started!"
 }
 
 # Show logs
 show_logs() {
     log_info "Showing service logs (Ctrl+C to exit)..."
-    docker-compose logs -f
+    docker compose logs -f
 }
 
 # Stop services
 stop_services() {
     log_info "Stopping all services..."
-    docker-compose down
+    docker compose down
     log_success "Services stopped!"
 }
 
@@ -95,7 +110,8 @@ clean_all() {
     read -r response
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         log_info "Cleaning up Docker resources..."
-        docker-compose down -v --rmi all
+        docker compose down -v --rmi all
+        docker image prune -af
         docker system prune -f
         log_success "Cleanup completed!"
     else
@@ -106,10 +122,10 @@ clean_all() {
 # Show service status
 show_status() {
     log_info "Service Status:"
-    docker-compose ps
+    docker compose ps
     echo
     log_info "Health Checks:"
-    docker-compose exec redis redis-cli ping || echo "Redis: Not responding"
+    docker compose exec redis redis-cli ping || echo "Redis: Not responding"
     curl -sf http://localhost:8000/health > /dev/null && echo "Server: Healthy" || echo "Server: Unhealthy"
     curl -sf http://localhost:3000 > /dev/null && echo "Client: Healthy" || echo "Client: Unhealthy"
 }

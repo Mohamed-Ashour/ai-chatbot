@@ -74,11 +74,10 @@ export function MessageList({ messages, isTyping = false }: MessageListProps) {
       className="flex-1 overflow-y-auto py-6 px-2"
     >
       <div className="max-w-4xl mx-auto min-h-0">
-        {messages.map((message, index) => (
+        {messages.map((message) => (
           <Message
             key={message.id}
             message={message}
-            isLast={index === messages.length - 1}
           />
         ))}
         
