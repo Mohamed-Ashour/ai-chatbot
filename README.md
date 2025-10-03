@@ -575,7 +575,3 @@ kubectl apply -f .
 MIT License - feel free to use this project as a foundation for your own AI chatbots!
 
 ---
-
-**🚀 Built with modern technologies for production-ready AI chat experiences**
-
-👏 **Ready for production** - Just add your OpenAI API key and Redis instance!
