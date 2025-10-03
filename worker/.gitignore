@@ -39,3 +39,8 @@ temp/
 .python-version
 
 .DS_store
+
+# Coverage reports
+htmlcov/
+.coverage
+.coverage.*
