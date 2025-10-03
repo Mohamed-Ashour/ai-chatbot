@@ -35,9 +35,9 @@ A modern, responsive AI chatbot client built with Next.js 14, TypeScript, and Ta
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
-- Your AI chatbot server running on `localhost:3500`
+- Your AI chatbot server running on `localhost:8000`
 
 ### Installation
 
@@ -47,11 +47,11 @@ A modern, responsive AI chatbot client built with Next.js 14, TypeScript, and Ta
    ```
 
 2. **Configure environment variables**
-   
+
    The `.env.local` file is already configured for local development:
    ```env
-   NEXT_PUBLIC_SERVER_URL=http://localhost:3500
-   NEXT_PUBLIC_WS_URL=ws://localhost:3500
+   NEXT_PUBLIC_API_URL=http://localhost:8000
+   NEXT_PUBLIC_WS_URL=ws://localhost:8000
    ```
 
 3. **Start the development server**
@@ -60,7 +60,7 @@ A modern, responsive AI chatbot client built with Next.js 14, TypeScript, and Ta
    ```
 
 4. **Open your browser**
-   
+
    Navigate to [http://localhost:3000](http://localhost:3000)
 
 ## Usage

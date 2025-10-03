@@ -39,7 +39,7 @@ fullstack-ai-chatbot/
 
 ### 📋 Data Flow
 1. **Client** sends message via WebSocket → **Server**
-2. **Server** publishes to Redis stream → **Worker** 
+2. **Server** publishes to Redis stream → **Worker**
 3. **Worker** processes with AI model → publishes response → **Server**
 4. **Server** sends AI response → **Client**
 5. **Worker** stores both messages in Redis for chat history
@@ -63,7 +63,7 @@ fullstack-ai-chatbot/
 - 🌐 **CORS** configured for development and production
 
 ### 🛠️ Worker (AI Processor)
-- 🤖 **GPT Integration** - OpenAI API for AI responses  
+- 🤖 **GPT Integration** - OpenAI API for AI responses
 - 📡 **Redis Stream Consumer** - Processes messages asynchronously
 - 📋 **History Management** - Stores user and AI messages
 - 🔄 **Context Awareness** - Uses chat history for better responses
@@ -112,12 +112,12 @@ cp .env.docker .env
 ./docker-start.sh
 
 # Or use Docker Compose directly
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 ✅ **All services will be running**:
 - 🌐 **Client**: http://localhost:3000
-- 🚀 **Server**: http://localhost:8000  
+- 🚀 **Server**: http://localhost:8000
 - 🔴 **Redis**: localhost:6379
 - 📖 **API Docs**: http://localhost:8000/docs
 
@@ -189,7 +189,7 @@ cp .env.example .env
 # Edit .env with your Redis credentials
 
 # Configure worker environment
-cd ../worker  
+cd ../worker
 cp .env.example .env
 # Edit .env with your OpenAI API key
 
@@ -206,12 +206,12 @@ cd server
 ./start_server.sh
 ```
 
-✅ Server runs on `http://localhost:3500`:
+✅ Server runs on `http://localhost:8000`:
 - 🏠 Health: `GET /test`
-- 🎫 Token: `POST /token`  
+- 🎫 Token: `POST /token`
 - 📋 History: `GET /chat_history`
-- 🔌 WebSocket: `ws://localhost:3500/chat`
-- 📖 Docs: `http://localhost:3500/docs`
+- 🔌 WebSocket: `ws://localhost:8000/chat`
+- 📖 Docs: `http://localhost:8000/docs`
 
 ### 3. Start the Worker (Terminal 2)
 
@@ -246,27 +246,30 @@ cd generated-client
 Edit `server/.env`:
 ```env
 APP_ENV=development
-REDIS_URL=your_redis_host:port
-REDIS_USER=your_redis_user
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_USER=default
 REDIS_PASSWORD=your_redis_password
+CORS_ORIGINS=http://localhost:3000,http://client:3000
 ```
 
-### Worker Configuration  
+### Worker Configuration
 
 Edit `worker/.env`:
 ```env
-OPENAI_API_KEY=your_openai_api_key
-REDIS_URL=your_redis_host:port
-REDIS_USER=your_redis_user
+GROQ_API_KEY=your_groq_api_key
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_USER=default
 REDIS_PASSWORD=your_redis_password
 ```
 
 ### Client Configuration
 
-Edit `generated-client/.env.local`:
+Edit `client/.env.local`:
 ```env
-NEXT_PUBLIC_SERVER_URL=http://localhost:3500
-NEXT_PUBLIC_WS_URL=ws://localhost:3500
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
 ```
 
 ### Session Configuration
@@ -281,13 +284,13 @@ NEXT_PUBLIC_WS_URL=ws://localhost:3500
 #### Service Won't Start
 ```bash
 # Check service logs
-docker-compose logs [service-name]
+docker compose logs [service-name]
 
 # Check service status
-docker-compose ps
+docker compose ps
 
 # Restart specific service
-docker-compose restart [service-name]
+docker compose restart [service-name]
 ```
 
 #### Environment Variables
@@ -296,7 +299,7 @@ docker-compose restart [service-name]
 ls -la .env
 
 # Check loaded environment in container
-docker-compose exec server printenv | grep API
+docker compose exec server printenv | grep API
 ```
 
 #### Port Conflicts
@@ -313,10 +316,10 @@ lsof -i :6379
 #### Redis Connection Issues
 ```bash
 # Test Redis connectivity
-docker-compose exec redis redis-cli ping
+docker compose exec redis redis-cli ping
 
 # Check Redis logs
-docker-compose logs redis
+docker compose logs redis
 ```
 
 #### Build Issues
@@ -378,7 +381,7 @@ npm run build
 - `500` - Internal server error
 
 ### WebSocket
-- `ws://localhost:3500/chat?token=<token>` - Real-time bidirectional chat
+- `ws://localhost:8000/chat?token=<token>` - Real-time bidirectional chat
 
 **Connection Codes:**
 - `1000` - Normal closure
@@ -407,7 +410,7 @@ npm run build
 ```bash
 cd server
 source .venv/bin/activate
-uvicorn main:api --reload --host 0.0.0.0 --port 3500
+uvicorn main:api --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Client Development
@@ -457,7 +460,7 @@ cp .env.production.template .env.production
 # 3. Deploy to staging
 ./docker-deploy.sh staging v1.0.0 deploy
 
-# 4. Deploy to production  
+# 4. Deploy to production
 ./docker-deploy.sh production v1.0.0 deploy
 ```
 
@@ -479,7 +482,7 @@ services:
         limits:
           memory: 1gb
           cpus: '1.0'
-  
+
   worker:
     deploy:
       replicas: 2
@@ -510,7 +513,7 @@ export REDIS_URL=your_production_redis
 gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```
 
-#### Worker  
+#### Worker
 ```bash
 # Ensure Groq API key is set
 export GROQ_API_KEY=your_production_key
@@ -555,14 +558,14 @@ kubectl apply -f .
 
 - ✨ **Session Persistence** - Automatic login restoration
 - 📋 **Chat History** - Complete conversation storage
-- 📝 **Markdown Support** - Rich text with syntax highlighting  
+- 📝 **Markdown Support** - Rich text with syntax highlighting
 - 🔐 **Token Security** - Proper expiration handling
 - 🎨 **UI Polish** - Loading states and animations
 - 🐛 **Bug Fixes** - UUID generation, scrollbar behavior
 
 ## 📜 Documentation
 
-- **Server API**: `http://localhost:3500/docs` (FastAPI auto-docs)
+- **Server API**: `http://localhost:8000/docs` (FastAPI auto-docs)
 - **Architecture**: Microservices with Redis message streaming
 - **Security**: Token-based sessions with 1-hour expiry
 - **Persistence**: localStorage + Redis for full session restoration

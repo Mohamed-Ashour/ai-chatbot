@@ -10,7 +10,7 @@
 ### Service Dockerfiles
 - `server/Dockerfile` - FastAPI server container
 - `client/Dockerfile` - Next.js client production container
-- `client/Dockerfile.dev` - Next.js client development container  
+- `client/Dockerfile.dev` - Next.js client development container
 - `worker/Dockerfile` - AI worker container
 - `worker/requirements.txt` - Python dependencies for worker
 
@@ -93,7 +93,6 @@ The Docker setup creates a complete microservices architecture:
 Copy `.env.docker` to `.env` and configure:
 
 - `GROQ_API_KEY` - Your Groq API key for AI responses
-- `JWT_SECRET` - Secret for token generation (min 32 chars)
 - `CORS_ORIGINS` - Allowed origins for CORS
 - `NEXT_PUBLIC_API_URL` - Client API URL
 - `NEXT_PUBLIC_WS_URL` - Client WebSocket URL
