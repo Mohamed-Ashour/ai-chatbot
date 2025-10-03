@@ -38,42 +38,42 @@ log_error() {
 # Build and tag images
 build_images() {
     log_info "Building Docker images for $ENVIRONMENT environment..."
-    
+
     # Build server
     docker build -t $DOCKER_REGISTRY/$PROJECT_NAME-server:$VERSION ./server
     docker build -t $DOCKER_REGISTRY/$PROJECT_NAME-server:latest ./server
-    
+
     # Build client
     docker build -t $DOCKER_REGISTRY/$PROJECT_NAME-client:$VERSION ./client
     docker build -t $DOCKER_REGISTRY/$PROJECT_NAME-client:latest ./client
-    
+
     # Build worker
     docker build -t $DOCKER_REGISTRY/$PROJECT_NAME-worker:$VERSION ./worker
     docker build -t $DOCKER_REGISTRY/$PROJECT_NAME-worker:latest ./worker
-    
+
     log_success "Images built successfully!"
 }
 
 # Push images to registry
 push_images() {
     log_info "Pushing images to registry..."
-    
+
     docker push $DOCKER_REGISTRY/$PROJECT_NAME-server:$VERSION
     docker push $DOCKER_REGISTRY/$PROJECT_NAME-server:latest
-    
+
     docker push $DOCKER_REGISTRY/$PROJECT_NAME-client:$VERSION
     docker push $DOCKER_REGISTRY/$PROJECT_NAME-client:latest
-    
+
     docker push $DOCKER_REGISTRY/$PROJECT_NAME-worker:$VERSION
     docker push $DOCKER_REGISTRY/$PROJECT_NAME-worker:latest
-    
+
     log_success "Images pushed successfully!"
 }
 
 # Create production docker-compose
 create_production_compose() {
     log_info "Creating production docker-compose.yml..."
-    
+
     cat > docker-compose.prod.yml << EOF
 version: '3.8'
 
@@ -103,7 +103,6 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379
       - CORS_ORIGINS=\${CORS_ORIGINS}
-      - JWT_SECRET=\${JWT_SECRET}
       - TOKEN_EXPIRY_HOURS=\${TOKEN_EXPIRY_HOURS}
     depends_on:
       - redis
@@ -169,17 +168,13 @@ EOF
 # Create environment template for production
 create_production_env() {
     log_info "Creating production environment template..."
-    
+
     cat > .env.production.template << EOF
 # Production Environment Configuration
 # Copy this to .env.production and fill in your values
 
 # Groq API Configuration
 GROQ_API_KEY=your-groq-api-key-here
-
-# JWT Configuration  
-JWT_SECRET=your-super-secret-jwt-key-change-in-production-min-32-chars
-TOKEN_EXPIRY_HOURS=24
 
 # CORS Configuration (your domain)
 CORS_ORIGINS=https://yourapp.com
@@ -198,45 +193,45 @@ EOF
 # Deploy to environment
 deploy() {
     log_info "Deploying to $ENVIRONMENT environment..."
-    
+
     if [ "$ENVIRONMENT" = "production" ]; then
         if [ ! -f .env.production ]; then
             log_error ".env.production file not found. Please create it from .env.production.template"
             exit 1
         fi
-        docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
+        docker compose -f docker-compose.prod.yml --env-file .env.production up -d
     elif [ "$ENVIRONMENT" = "staging" ]; then
         if [ ! -f .env.staging ]; then
             log_warning ".env.staging file not found. Using .env.docker as fallback"
             cp .env.docker .env.staging
         fi
-        docker-compose -f docker-compose.prod.yml --env-file .env.staging up -d
+        docker compose -f docker-compose.prod.yml --env-file .env.staging up -d
     else
         log_error "Unknown environment: $ENVIRONMENT. Use 'staging' or 'production'"
         exit 1
     fi
-    
+
     log_success "Deployment completed!"
 }
 
 # Health check
 health_check() {
     log_info "Performing health checks..."
-    
+
     local max_attempts=30
     local attempt=0
-    
+
     while [ $attempt -lt $max_attempts ]; do
         if curl -sf http://localhost:8000/health > /dev/null; then
             log_success "Server is healthy!"
             break
         fi
-        
+
         attempt=$((attempt + 1))
         log_info "Waiting for server to be healthy... ($attempt/$max_attempts)"
         sleep 5
     done
-    
+
     if [ $attempt -eq $max_attempts ]; then
         log_error "Health check failed after $max_attempts attempts"
         exit 1
@@ -250,7 +245,7 @@ show_info() {
     echo "Version: $VERSION"
     echo "Registry: $DOCKER_REGISTRY"
     echo ""
-    docker-compose -f docker-compose.prod.yml ps
+    docker compose -f docker-compose.prod.yml ps
 }
 
 # Main script logic

@@ -1,19 +1,18 @@
-version: '3.8'
 
 services:
   # Redis Database
   redis:
-    image: redis:7-alpine
+    image: redis/redis-stack-server:7.4.0-v0
     container_name: chatbot-redis
     restart: unless-stopped
     ports:
       - "6379:6379"
+    environment:
+      - REDIS_ARGS=--requirepass ${REDIS_PASSWORD}
     volumes:
       - redis_data:/data
-      - ./redis.conf:/usr/local/etc/redis/redis.conf
-    command: redis-server /usr/local/etc/redis/redis.conf
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -22,7 +21,7 @@ services:
 
   # FastAPI Server
   server:
-    build: 
+    build:
       context: ./server
       dockerfile: Dockerfile
     container_name: chatbot-server
@@ -30,9 +29,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_USER=${REDIS_USER}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - CORS_ORIGINS=http://localhost:3000,http://client:3000
-      - JWT_SECRET=${JWT_SECRET:-your-secret-key-change-in-production}
       - TOKEN_EXPIRY_HOURS=${TOKEN_EXPIRY_HOURS:-1}
     depends_on:
       redis:
@@ -42,7 +43,7 @@ services:
     networks:
       - chatbot-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -55,7 +56,10 @@ services:
     container_name: chatbot-worker
     restart: unless-stopped
     environment:
-      - REDIS_URL=redis://redis:6379
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_USER=${REDIS_USER}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - GROQ_API_KEY=${GROQ_API_KEY}
     depends_on:
       redis:
@@ -65,12 +69,12 @@ services:
     networks:
       - chatbot-network
     healthcheck:
-      test: ["CMD", "python", "-c", "import redis; redis.Redis.from_url('redis://redis:6379').ping()"]
+      test: [ "CMD", "python", "-c", "import redis; redis.Redis.from_url('redis://:${REDIS_PASSWORD}@redis:6379').ping()" ]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  # Next.js Client  
+  # Next.js Client
   client:
     build:
       context: ./client
@@ -88,7 +92,7 @@ services:
     networks:
       - chatbot-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      test: [ "CMD", "curl", "-f", "http://localhost:3000" ]
       interval: 30s
       timeout: 10s
       retries: 3
