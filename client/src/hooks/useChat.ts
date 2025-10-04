@@ -221,52 +221,56 @@ export const useChat = () => {
   // Initialize session on mount and auto-reconnect
   useEffect(() => {
     const restoreSessionWithHistory = async () => {
-      const session = loadSession()
-      if (session) {
-        console.log('Restoring session for:', session.userName)
-        
-        setToken(session.token)
-        setUserName(session.userName)
-        setHasValidSession(true)
-        setConnectionStatus('connecting')
-        
-        try {
-          // Load chat history first
-          const { messages: history, tokenExpired } = await getChatHistory(session.token)
+      try {
+        // Small delay to allow initial render to complete
+        await new Promise(resolve => setTimeout(resolve, 0))
+        const session = loadSession()
+        if (session) {
+          console.log('Restoring session for:', session.userName)
           
-          if (tokenExpired) {
-            // Token has expired, handle it
-            handleTokenExpiration()
-            return
+          setToken(session.token)
+          setUserName(session.userName)
+          setHasValidSession(true)
+          setConnectionStatus('connecting')
+          
+          try {
+            // Load chat history first
+            const { messages: history, tokenExpired } = await getChatHistory(session.token)
+            
+            if (tokenExpired) {
+              // Token has expired, handle it
+              handleTokenExpiration()
+              return
+            }
+            
+            if (history.length > 0) {
+              setMessages(history)
+              console.log(`Loaded ${history.length} messages from chat history`)
+            } else {
+              console.log('No chat history found for this session')
+            }
+            
+            // Then automatically reconnect with stored session
+            manuallyClosed.current = false
+            connectWebSocket(session.token)
+            
+            const historyText = history.length > 0 ? ` (${history.length} messages restored)` : ''
+            toast.success(`Welcome back, ${session.userName}!${historyText}`)
+          } catch (error) {
+            console.error('Error restoring session:', error)
+            // Clear invalid session
+            clearSession()
+            setHasValidSession(false)
+            setToken(null)
+            setUserName(null)
+            setConnectionStatus('disconnected')
+            toast.error('Failed to restore session')
           }
-          
-          if (history.length > 0) {
-            setMessages(history)
-            console.log(`Loaded ${history.length} messages from chat history`)
-          } else {
-            console.log('No chat history found for this session')
-          }
-          
-          // Then automatically reconnect with stored session
-          manuallyClosed.current = false
-          connectWebSocket(session.token)
-          
-          const historyText = history.length > 0 ? ` (${history.length} messages restored)` : ''
-          toast.success(`Welcome back, ${session.userName}!${historyText}`)
-        } catch (error) {
-          console.error('Error restoring session:', error)
-          // Clear invalid session
-          clearSession()
-          setHasValidSession(false)
-          setToken(null)
-          setUserName(null)
-          setConnectionStatus('disconnected')
-          toast.error('Failed to restore session')
         }
+      } finally {
+        // Session restoration complete (whether successful or not)
+        setIsRestoringSession(false)
       }
-      
-      // Session restoration complete (whether successful or not)
-      setIsRestoringSession(false)
     }
     
     restoreSessionWithHistory()
@@ -319,7 +323,7 @@ export const useChat = () => {
 
 
   const sendMessage = useCallback((content: string) => {
-    if (ws.current?.readyState !== WebSocket.OPEN) {
+    if (!ws.current || ws.current.readyState !== WebSocket.OPEN) {
       toast.error('Not connected to chat server')
       return
     }
@@ -347,6 +351,7 @@ export const useChat = () => {
     // Set timeout to hide typing indicator if no response
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current)
+      typingTimeoutRef.current = null
     }
     
     typingTimeoutRef.current = setTimeout(() => {
