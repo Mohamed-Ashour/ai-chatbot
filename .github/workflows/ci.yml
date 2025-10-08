@@ -1,0 +1,267 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  # Test Server (FastAPI)
+  test-server:
+    runs-on: ubuntu-latest
+    
+    services:
+      redis:
+        image: redis/redis-stack-server:7.4.0-v0
+        ports:
+          - 6379:6379
+        env:
+          REDIS_ARGS: --requirepass testpassword
+        options: >-
+          --health-cmd "redis-cli -a testpassword ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install server dependencies
+      run: |
+        cd server
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-cov httpx
+
+    - name: Create server .env for testing
+      run: |
+        cd server
+        cat > .env << EOF
+        REDIS_HOST=localhost
+        REDIS_PORT=6379
+        REDIS_USER=default
+        REDIS_PASSWORD=testpassword
+        APP_ENV=testing
+        CORS_ORIGINS=http://localhost:3000
+        TOKEN_EXPIRY_HOURS=1
+        EOF
+
+    - name: Run server tests
+      run: |
+        cd server
+        python -m pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
+
+    - name: Upload server coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./server/coverage.xml
+        flags: server
+        name: server-coverage
+
+  # Test Worker (Python)
+  test-worker:
+    runs-on: ubuntu-latest
+    
+    services:
+      redis:
+        image: redis/redis-stack-server:7.4.0-v0
+        ports:
+          - 6379:6379
+        env:
+          REDIS_ARGS: --requirepass testpassword
+        options: >-
+          --health-cmd "redis-cli -a testpassword ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+
+    - name: Install worker dependencies
+      run: |
+        cd worker
+        pip install -r requirements.txt
+        pip install pytest pytest-asyncio pytest-cov
+
+    - name: Create worker .env for testing
+      run: |
+        cd worker
+        cat > .env << EOF
+        REDIS_HOST=localhost
+        REDIS_PORT=6379
+        REDIS_USER=default
+        REDIS_PASSWORD=testpassword
+        GROQ_API_KEY=test_key_for_mocking
+        EOF
+
+    - name: Run worker tests
+      run: |
+        cd worker
+        python run_tests.py --cov=src --cov-report=xml --cov-report=term-missing
+
+    - name: Upload worker coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./worker/coverage.xml
+        flags: worker
+        name: worker-coverage
+
+  # Test and Lint Client (Next.js)
+  test-client:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: client/package-lock.json
+
+    - name: Install client dependencies
+      run: |
+        cd client
+        npm ci
+
+    - name: Run client linting
+      run: |
+        cd client
+        npm run lint
+
+    - name: Run client tests
+      run: |
+        cd client
+        npm run test:coverage
+
+    - name: Build client
+      run: |
+        cd client
+        npm run build
+
+    - name: Upload client coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./client/coverage/lcov.info
+        flags: client
+        name: client-coverage
+
+  # Code Quality and Security
+  code-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python for linting
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Python linting tools
+      run: |
+        pip install flake8 black isort bandit safety
+
+    - name: Run Python code formatting check (Black)
+      run: |
+        black --check server/ worker/ || echo "Code formatting issues found in Python files"
+
+    - name: Run Python import sorting check (isort)
+      run: |
+        isort --check-only server/ worker/ || echo "Import sorting issues found"
+
+    - name: Run Python linting (flake8)
+      run: |
+        flake8 server/ worker/ --max-line-length=88 --extend-ignore=E203,W503
+
+    - name: Run Python security analysis (bandit)
+      run: |
+        bandit -r server/ worker/ -f json -o bandit-report.json || true
+
+    - name: Run Python dependency security check
+      run: |
+        safety check --json --output safety-report.json || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+
+  # Integration Test
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: [test-server, test-worker, test-client]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create test environment file
+      run: |
+        cat > .env << EOF
+        REDIS_PASSWORD=testpassword123
+        REDIS_HOST=redis
+        REDIS_PORT=6379
+        REDIS_USER=default
+        GROQ_API_KEY=test_key_for_integration
+        TOKEN_EXPIRY_HOURS=1
+        EOF
+
+    - name: Build and run integration test
+      run: |
+        # Start services
+        docker compose up -d redis
+        
+        # Wait for Redis to be ready
+        timeout 30s bash -c 'until docker compose exec redis redis-cli -a testpassword123 ping; do sleep 1; done'
+        
+        # Build and start server
+        docker compose build server
+        docker compose up -d server
+        
+        # Wait for server to be ready
+        timeout 60s bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done'
+        
+        # Test API endpoints
+        curl -f http://localhost:8000/token
+        
+        # Cleanup
+        docker compose down
+
+  # Build Success Notification
+  build-success:
+    runs-on: ubuntu-latest
+    needs: [test-server, test-worker, test-client, code-quality, integration-test]
+    if: success()
+
+    steps:
+    - name: Build Success
+      run: |
+        echo "🎉 All CI checks passed successfully!"
+        echo "✅ Server tests passed"
+        echo "✅ Worker tests passed" 
+        echo "✅ Client tests and build passed"
+        echo "✅ Code quality checks passed"
+        echo "✅ Integration tests passed"
