@@ -112,7 +112,7 @@ jobs:
     - name: Run worker tests
       run: |
         cd worker
-        python run_tests.py --cov=src --cov-report=xml --cov-report=term-missing
+        python -m pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
 
     - name: Upload worker coverage reports
       uses: codecov/codecov-action@v3
@@ -201,7 +201,7 @@ jobs:
         safety check -o json > safety-report.json || true
 
     - name: Upload security reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: security-reports
