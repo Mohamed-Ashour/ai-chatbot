@@ -19,7 +19,6 @@ def run_tests():
     # Parse arguments
     cov_args = []
     test_file = None
-    
     for arg in sys.argv[1:]:
         if arg == "--coverage" or arg.startswith("--cov"):
             cov_args.append(arg)
@@ -35,7 +34,6 @@ def run_tests():
         for arg in cov_args:
             if arg.startswith("--cov-report="):
                 cmd.append(arg)
-    
     # Add xml report if --cov is present (for CI)
     if any("--cov" in arg for arg in sys.argv[1:]):
         cmd.append("--cov-report=xml")
@@ -44,7 +42,9 @@ def run_tests():
     if test_file:
         # Replace tests/ at the end
         cmd = cmd[:-1]  # Remove "tests/"
-        cmd.append(f"tests/{test_file}" if not test_file.startswith("tests/") else test_file)
+        cmd.append(
+            f"tests/{test_file}" if not test_file.startswith("tests/") else test_file
+        )
 
     # Run the tests
     try:
