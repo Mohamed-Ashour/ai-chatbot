@@ -309,10 +309,10 @@ class TestWorkerIntegration:
                                         # Simulate main initialization sequence
                                         redis = Redis()
                                         redis_client = await redis.create_connection()
-                        _ = Cache(redis_client)  # noqa: F841
-                        _ = GPT()  # noqa: F841
-                        _ = StreamConsumer(redis_client)  # noqa: F841
-                        _ = Producer(redis_client)  # noqa: F841
+                                        _ = Cache(redis_client)  # noqa: F841
+                                        _ = GPT()  # noqa: F841
+                                        _ = StreamConsumer(redis_client)  # noqa: F841
+                                        _ = Producer(redis_client)  # noqa: F841
 
         # Verify correct initialization order
         expected_order = ["Redis", "Cache", "GPT", "StreamConsumer", "Producer"]

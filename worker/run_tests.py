@@ -16,13 +16,35 @@ def run_tests():
     # Basic test command
     cmd = ["python", "-m", "pytest", "tests/", "-v"]
 
-    # Add coverage if requested
-    if "--coverage" in sys.argv:
-        cmd.extend(["--cov=src", "--cov-report=html", "--cov-report=term"])
+    # Parse arguments
+    cov_args = []
+    test_file = None
+    
+    for arg in sys.argv[1:]:
+        if arg == "--coverage" or arg.startswith("--cov"):
+            cov_args.append(arg)
+        elif arg.startswith("--cov="):
+            cov_args.append(arg)
+        elif arg.startswith("test_") or arg.endswith(".py"):
+            test_file = arg
+
+    # Add coverage options
+    if cov_args:
+        cmd.extend(["--cov=src", "--cov-report=term-missing"])
+        # Add any additional coverage reports if specified
+        for arg in cov_args:
+            if arg.startswith("--cov-report="):
+                cmd.append(arg)
+    
+    # Add xml report if --cov is present (for CI)
+    if any("--cov" in arg for arg in sys.argv[1:]):
+        cmd.append("--cov-report=xml")
 
     # Add specific test file if provided
-    if len(sys.argv) > 1 and sys.argv[1].startswith("test_"):
-        cmd = ["python", "-m", "pytest", f"tests/{sys.argv[1]}", "-v"]
+    if test_file:
+        # Replace tests/ at the end
+        cmd = cmd[:-1]  # Remove "tests/"
+        cmd.append(f"tests/{test_file}" if not test_file.startswith("tests/") else test_file)
 
     # Run the tests
     try:
