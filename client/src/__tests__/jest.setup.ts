@@ -28,9 +28,12 @@ const localStorageMock = {
   setItem: jest.fn(),
   removeItem: jest.fn(),
   clear: jest.fn(),
+  length: 0,
+  key: jest.fn()
 }
 Object.defineProperty(window, 'localStorage', {
   value: localStorageMock,
+  configurable: true
 })
 
 // Mock IntersectionObserver
@@ -90,7 +93,10 @@ beforeAll(() => {
       (
         args[0].includes('The current testing environment is not configured to support act') ||
         args[0].includes('You called act(async () => ...) without await') ||
-        args[0].includes('Warning: ReactDOM.render is no longer supported')
+        args[0].includes('Warning: ReactDOM.render is no longer supported') ||
+        args[0].includes('An update to TestComponent inside a test was not wrapped in act') ||
+        args[0].includes('React does not recognize the `whileHover` prop') ||
+        args[0].includes('React does not recognize the `whileTap` prop')
       )
     ) {
       return

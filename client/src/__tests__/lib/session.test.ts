@@ -46,7 +46,9 @@ describe('session management', () => {
       // Mock console.warn to avoid console output in tests
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
 
-      expect(() => saveSession('token', 'user')).not.toThrow()
+      // The function should not throw and should call console.warn
+      saveSession('token', 'user')
+      
       expect(consoleSpy).toHaveBeenCalledWith(
         'Failed to save session to localStorage:',
         expect.any(Error)
@@ -60,7 +62,8 @@ describe('session management', () => {
       // @ts-expect-error - Temporarily deleting window for SSR testing
       delete global.window
 
-      expect(() => saveSession('token', 'user')).not.toThrow()
+      // Should not throw when window is undefined
+      saveSession('token', 'user')
 
       global.window = originalWindow
     })
@@ -173,7 +176,9 @@ describe('session management', () => {
 
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation()
 
-      expect(() => clearSession()).not.toThrow()
+      // Function should handle errors gracefully without throwing
+      clearSession()
+      
       expect(consoleSpy).toHaveBeenCalledWith(
         'Failed to clear session from localStorage:',
         expect.any(Error)
@@ -187,7 +192,8 @@ describe('session management', () => {
       // @ts-expect-error - Temporarily deleting window for SSR testing
       delete global.window
 
-      expect(() => clearSession()).not.toThrow()
+      // Should handle SSR gracefully without throwing
+      clearSession()
 
       global.window = originalWindow
     })

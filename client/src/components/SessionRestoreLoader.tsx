@@ -15,12 +15,14 @@ export function SessionRestoreLoader() {
 
       {/* Header with loading state */}
       <motion.header
+        data-testid="motion-div"
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative z-10 flex items-center justify-between p-4 bg-white/90 backdrop-blur-md border-b border-white/20 shadow-lg shadow-gray-100/50"
       >
         <div className="flex items-center gap-4">
           <motion.div
+            data-testid="motion-div"
             animate={{ rotate: 360 }}
             transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
             className="w-12 h-12 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg shadow-purple-200/50"
@@ -32,6 +34,7 @@ export function SessionRestoreLoader() {
               AI Chatbot
             </h1>
             <motion.p
+              data-testid="motion-div"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="text-sm text-gray-600 font-medium"
@@ -43,6 +46,7 @@ export function SessionRestoreLoader() {
 
         <div className="flex items-center gap-3">
           <motion.div
+            data-testid="motion-div"
             animate={{ rotate: 360 }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
             className="p-3 text-indigo-600 bg-indigo-50 rounded-xl"
@@ -56,6 +60,7 @@ export function SessionRestoreLoader() {
       <div className="relative z-10 flex-1 flex items-center justify-center p-8">
         <div className="text-center max-w-lg">
           <motion.div
+            data-testid="motion-div"
             animate={{ 
               y: [0, -12, 0],
               scale: [1, 1.05, 1]
@@ -71,6 +76,7 @@ export function SessionRestoreLoader() {
           </motion.div>
           
           <motion.h2
+            data-testid="motion-div"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -80,6 +86,7 @@ export function SessionRestoreLoader() {
           </motion.h2>
           
           <motion.p
+            data-testid="motion-div"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
@@ -90,6 +97,7 @@ export function SessionRestoreLoader() {
 
           {/* Loading animation */}
           <motion.div
+            data-testid="motion-div"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
@@ -98,6 +106,7 @@ export function SessionRestoreLoader() {
             {[0, 1, 2].map((i) => (
               <motion.div
                 key={i}
+                data-testid="motion-div"
                 animate={{
                   scale: [1, 1.2, 1],
                   opacity: [0.5, 1, 0.5]
@@ -114,6 +123,7 @@ export function SessionRestoreLoader() {
           </motion.div>
 
           <motion.p
+            data-testid="motion-div"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.8 }}

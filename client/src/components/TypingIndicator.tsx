@@ -6,6 +6,7 @@ import { Bot } from 'lucide-react'
 export function TypingIndicator() {
   return (
     <motion.div
+      data-testid="motion-div"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
@@ -14,6 +15,7 @@ export function TypingIndicator() {
     >
       {/* Avatar */}
       <motion.div
+        data-testid="motion-div"
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         transition={{ delay: 0.1, type: "spring", stiffness: 500, damping: 25 }}
@@ -24,6 +26,7 @@ export function TypingIndicator() {
 
       {/* Typing Bubble */}
       <motion.div
+        data-testid="motion-div"
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.3 }}
@@ -45,6 +48,7 @@ export function TypingIndicator() {
             {[0, 1, 2].map((i) => (
               <motion.div
                 key={i}
+                data-testid="motion-div"
                 className="w-2.5 h-2.5 bg-gradient-to-br from-emerald-400 to-cyan-400 rounded-full"
                 animate={{
                   scale: [1, 1.4, 1],

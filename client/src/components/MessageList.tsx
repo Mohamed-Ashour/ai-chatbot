@@ -31,6 +31,7 @@ export function MessageList({ messages, isTyping = false }: MessageListProps) {
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="text-center max-w-md">
           <motion.div
+            data-testid="motion-div"
             animate={{ 
               y: [0, -8, 0],
               scale: [1, 1.05, 1]

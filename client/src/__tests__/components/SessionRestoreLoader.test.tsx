@@ -20,6 +20,16 @@ jest.mock('framer-motion', () => ({
         {children}
       </h1>
     ),
+    h2: ({ children, className, ...props }: MockMotionProps) => (
+      <h2 className={className} {...props}>
+        {children}
+      </h2>
+    ),
+    header: ({ children, className, ...props }: MockMotionProps) => (
+      <header className={className} {...props}>
+        {children}
+      </header>
+    ),
     p: ({ children, className, ...props }: MockMotionProps) => (
       <p className={className} {...props}>
         {children}

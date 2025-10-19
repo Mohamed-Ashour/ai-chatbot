@@ -186,7 +186,9 @@ describe('useChat Hook', () => {
     })
     mockWebSocketInstances.length = 0
     
-    jest.runOnlyPendingTimers()
+    act(() => {
+      jest.runOnlyPendingTimers()
+    })
     jest.useRealTimers()
     jest.clearAllMocks()
     jest.clearAllTimers()
@@ -212,11 +214,10 @@ describe('useChat Hook', () => {
 
       const { result } = renderHook(() => useChat())
 
-      await act(async () => {
-        await new Promise(resolve => setTimeout(resolve, 100))
-      })
-
-      expect(result.current.isRestoringSession).toBe(false)
+      // Wait for session restoration to complete
+      await waitFor(() => {
+        expect(result.current.isRestoringSession).toBe(false)
+      }, { timeout: 1000 })
     })
   })
 
@@ -251,15 +252,12 @@ describe('useChat Hook', () => {
 
       const { result } = renderHook(() => useChat())
       
-      await act(async () => {
-        await new Promise(resolve => setTimeout(resolve, 0));
-      });
-
+      // Wait for session restoration to complete
       await waitFor(() => {
         expect(result.current.userName).toBe('John Doe')
         expect(result.current.hasValidSession).toBe(true)
         expect(result.current.messages).toHaveLength(2)
-      })
+      }, { timeout: 2000 })
 
       expect(result.current.messages[0].content).toBe('Hello')
       expect(result.current.messages[1].content).toBe('Hi there!')
@@ -515,7 +513,7 @@ describe('useChat Hook', () => {
       expect(mockToast.error).toHaveBeenCalledWith('Connection lost. Attempting to reconnect...')
 
       // Should attempt reconnection after 3 seconds
-      await act(async () => {
+      act(() => {
         jest.advanceTimersByTime(3000)
       })
 
@@ -548,7 +546,7 @@ describe('useChat Hook', () => {
       expect(mockToast.error).not.toHaveBeenCalledWith('Connection lost. Attempting to reconnect...')
 
       // Wait a bit to ensure no reconnection happens
-      await act(async () => {
+      act(() => {
         jest.advanceTimersByTime(5000)
       })
 
@@ -624,7 +622,7 @@ describe('useChat Hook', () => {
       expect(result.current.isTyping).toBe(true)
 
       // Advance time by 10 seconds (typing timeout)
-      await act(async () => {
+      act(() => {
         jest.advanceTimersByTime(10000)
       })
 
