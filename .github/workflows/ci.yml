@@ -10,7 +10,7 @@ jobs:
   # Test Server (FastAPI)
   test-server:
     runs-on: ubuntu-latest
-    
+
     services:
       redis:
         image: redis/redis-stack-server:7.4.0-v0
@@ -68,7 +68,7 @@ jobs:
   # Test Worker (Python)
   test-worker:
     runs-on: ubuntu-latest
-    
+
     services:
       redis:
         image: redis/redis-stack-server:7.4.0-v0
@@ -233,20 +233,26 @@ jobs:
       run: |
         # Start services
         docker compose up -d redis
-        
+
         # Wait for Redis to be ready
-        timeout 30s bash -c 'until docker compose exec redis redis-cli -a testpassword123 ping; do sleep 1; done'
-        
+        for i in {1..30}; do
+          docker compose exec -T redis redis-cli -a testpassword123 ping && break
+          sleep 1
+        done
+
         # Build and start server
         docker compose build server
         docker compose up -d server
-        
+
         # Wait for server to be ready
-        timeout 60s bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done'
-        
+        for i in {1..60}; do
+          curl -f http://localhost:8000/health && break
+          sleep 1
+        done
+
         # Test API endpoints
-        curl -f http://localhost:8000/token
-        
+        curl -f -X POST http://localhost:8000/token -d "name=test-user"
+
         # Cleanup
         docker compose down
 
@@ -261,7 +267,7 @@ jobs:
       run: |
         echo "🎉 All CI checks passed successfully!"
         echo "✅ Server tests passed"
-        echo "✅ Worker tests passed" 
+        echo "✅ Worker tests passed"
         echo "✅ Client tests and build passed"
         echo "✅ Code quality checks passed"
         echo "✅ Integration tests passed"
