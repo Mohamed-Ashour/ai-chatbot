@@ -3,9 +3,15 @@ import { Message } from '@/components/Message'
 import { Message as MessageType } from '@/types/chat'
 
 // Mock framer-motion to avoid animation issues in tests
+interface MockMotionProps {
+  children?: React.ReactNode
+  className?: string
+  [key: string]: unknown
+}
+
 jest.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, ...props }: any) => (
+    div: ({ children, className, ...props }: MockMotionProps) => (
       <div className={className} {...props} data-testid="motion-div">
         {children}
       </div>
@@ -223,7 +229,7 @@ describe('Message Component', () => {
 
   it('should have proper message bubble positioning', () => {
     const userMessage = createMessage({ isUser: true })
-    render(<Message message={userMessage} />)
+    const { rerender } = render(<Message message={userMessage} />)
 
     const containers = screen.getAllByTestId('motion-div')
     
@@ -234,7 +240,7 @@ describe('Message Component', () => {
     expect(userContainer).toBeTruthy()
 
     const aiMessage = createMessage({ isUser: false })
-    const { rerender } = render(<Message message={aiMessage} />)
+    rerender(<Message message={aiMessage} />)
 
     const aiContainers = screen.getAllByTestId('motion-div')
     

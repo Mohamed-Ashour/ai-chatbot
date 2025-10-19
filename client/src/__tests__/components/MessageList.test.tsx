@@ -3,15 +3,20 @@ import { MessageList } from '@/components/MessageList'
 import { Message } from '@/types/chat'
 
 // Mock framer-motion to avoid animation issues in tests
+interface MockMotionProps {
+  children?: React.ReactNode
+  className?: string
+  [key: string]: unknown
+}
+
 jest.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, ...props }: any) => (
-      <div className={className} {...props} data-testid="motion-div">
+    div: ({ children, className, ...props }: MockMotionProps) => (
+      <div className={className} {...props}>
         {children}
       </div>
     ),
   },
-  AnimatePresence: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
 // Mock child components

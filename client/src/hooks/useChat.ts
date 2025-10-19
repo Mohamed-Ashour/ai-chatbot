@@ -22,7 +22,7 @@ export const useChat = () => {
   const [messages, setMessages] = useState<Message[]>([])
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected')
   const [isTyping, setIsTyping] = useState(false)
-  const [token, setToken] = useState<string | null>(null)
+  const [, setToken] = useState<string | null>(null)
   const [userName, setUserName] = useState<string | null>(null)
   const [hasValidSession, setHasValidSession] = useState(false)
   const [isRestoringSession, setIsRestoringSession] = useState(true) // Start as true to check for session

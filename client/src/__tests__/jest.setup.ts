@@ -13,14 +13,14 @@ configure({
 process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000'
 process.env.NEXT_PUBLIC_WS_URL = 'ws://localhost:8000'
 
-// Mock WebSocket
+
 global.WebSocket = jest.fn(() => ({
   readyState: 1,
   send: jest.fn(),
   close: jest.fn(),
   addEventListener: jest.fn(),
   removeEventListener: jest.fn(),
-})) as any
+})) as unknown as jest.MockedClass<typeof WebSocket>
 
 // Mock localStorage
 const localStorageMock = {
@@ -49,7 +49,8 @@ global.IntersectionObserver = class IntersectionObserver {
 
 // Mock ResizeObserver
 global.ResizeObserver = class ResizeObserver {
-  constructor(cb: any) {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  constructor(_cb: ResizeObserverCallback) {}
   observe() {
     return null
   }
@@ -83,7 +84,7 @@ global.fetch = jest.fn()
 // These warnings are expected in test environment and don't indicate real issues
 const originalError = console.error
 beforeAll(() => {
-  console.error = (...args: any[]) => {
+  console.error = (...args: unknown[]) => {
     if (
       typeof args[0] === 'string' &&
       (

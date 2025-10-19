@@ -3,14 +3,30 @@ import userEvent from '@testing-library/user-event'
 import { MessageInput } from '@/components/MessageInput'
 
 // Mock framer-motion to avoid animation issues in tests
+interface MockMotionProps {
+  children?: React.ReactNode
+  className?: string
+  onClick?: () => void
+  disabled?: boolean
+  initial?: unknown
+  animate?: unknown
+  exit?: unknown
+  transition?: unknown
+  whileHover?: unknown
+  whileTap?: unknown
+  [key: string]: unknown
+}
+
 jest.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, ...props }: any) => {
-      const { initial, animate, exit, transition, whileHover, whileTap, ...otherProps } = props;
+    div: ({ children, className, ...props }: MockMotionProps) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { initial: _initial, animate: _animate, exit: _exit, transition: _transition, whileHover: _whileHover, whileTap: _whileTap, ...otherProps } = props;
       return <div className={className} {...otherProps}>{children}</div>;
     },
-    button: ({ children, onClick, disabled, className, ...props }: any) => {
-      const { initial, animate, exit, transition, whileHover, whileTap, ...otherProps } = props;
+    button: ({ children, onClick, disabled, className, ...props }: MockMotionProps) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { initial: _initial, animate: _animate, exit: _exit, transition: _transition, whileHover: _whileHover, whileTap: _whileTap, ...otherProps } = props;
       return (
         <button onClick={onClick} disabled={disabled} className={className} {...otherProps}>
           {children}

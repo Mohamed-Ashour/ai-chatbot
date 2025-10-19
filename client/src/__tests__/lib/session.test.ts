@@ -1,7 +1,7 @@
 import { saveSession, loadSession, clearSession, isSessionValid } from '@/lib/session'
 
 // Mock localStorage from setup file
-const mockLocalStorage = (window as any).localStorage
+const mockLocalStorage = (window as unknown as { localStorage: typeof localStorage }).localStorage
 
 describe('session management', () => {
   beforeEach(() => {
@@ -57,7 +57,7 @@ describe('session management', () => {
 
     it('should handle server-side rendering (window undefined)', () => {
       const originalWindow = global.window
-      // @ts-ignore
+      // @ts-expect-error - Temporarily deleting window for SSR testing
       delete global.window
 
       expect(() => saveSession('token', 'user')).not.toThrow()
@@ -130,7 +130,7 @@ describe('session management', () => {
 
     it('should handle server-side rendering (window undefined)', () => {
       const originalWindow = global.window
-      // @ts-ignore
+      // @ts-expect-error - Temporarily deleting window for SSR testing
       delete global.window
 
       const result = loadSession()
@@ -184,7 +184,7 @@ describe('session management', () => {
 
     it('should handle server-side rendering (window undefined)', () => {
       const originalWindow = global.window
-      // @ts-ignore
+      // @ts-expect-error - Temporarily deleting window for SSR testing
       delete global.window
 
       expect(() => clearSession()).not.toThrow()

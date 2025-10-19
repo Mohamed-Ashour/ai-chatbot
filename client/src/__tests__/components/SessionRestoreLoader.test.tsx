@@ -2,31 +2,37 @@ import { render, screen } from '@testing-library/react'
 import { SessionRestoreLoader } from '@/components/SessionRestoreLoader'
 
 // Mock framer-motion to avoid animation issues in tests
+interface MockMotionProps {
+  children?: React.ReactNode
+  className?: string
+  [key: string]: unknown
+}
+
 jest.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, ...props }: any) => (
-      <div className={className} {...props} data-testid="motion-div">
+    div: ({ children, className, ...props }: MockMotionProps) => (
+      <div className={className} {...props}>
         {children}
       </div>
     ),
-    header: ({ children, className, ...props }: any) => (
-      <header className={className} {...props}>
+    h1: ({ children, className, ...props }: MockMotionProps) => (
+      <h1 className={className} {...props}>
         {children}
-      </header>
+      </h1>
     ),
-    h2: ({ children, className, ...props }: any) => (
-      <h2 className={className} {...props}>
-        {children}
-      </h2>
-    ),
-    p: ({ children, className, ...props }: any) => (
+    p: ({ children, className, ...props }: MockMotionProps) => (
       <p className={className} {...props}>
         {children}
       </p>
     ),
+    span: ({ children, className, ...props }: MockMotionProps) => (
+      <span className={className} {...props}>
+        {children}
+      </span>
+    ),
   },
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => children,
 }))
-
 describe('SessionRestoreLoader Component', () => {
   it('should render loading screen with correct content', () => {
     render(<SessionRestoreLoader />)

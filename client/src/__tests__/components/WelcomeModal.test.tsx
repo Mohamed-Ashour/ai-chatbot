@@ -1,36 +1,54 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { WelcomeModal } from '@/components/WelcomeModal'
 
 // Mock framer-motion to avoid animation issues in tests
+interface MockMotionProps {
+  children?: React.ReactNode
+  className?: string
+  onClick?: () => void
+  disabled?: boolean
+  initial?: unknown
+  animate?: unknown
+  exit?: unknown
+  transition?: unknown
+  whileHover?: unknown
+  whileTap?: unknown
+  [key: string]: unknown
+}
+
 jest.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, onClick, ...props }: any) => {
-      const { initial, animate, exit, transition, whileHover, whileTap, ...otherProps } = props;
+    div: ({ children, className, onClick, ...props }: MockMotionProps) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { initial: _initial, animate: _animate, exit: _exit, transition: _transition, whileHover: _whileHover, whileTap: _whileTap, ...otherProps } = props;
       return (
         <div className={className} onClick={onClick} {...otherProps}>
           {children}
         </div>
       );
     },
-    button: ({ children, onClick, disabled, className, ...props }: any) => {
-      const { initial, animate, exit, transition, whileHover, whileTap, ...otherProps } = props;
+    button: ({ children, onClick, disabled, className, ...props }: MockMotionProps) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { initial: _initial, animate: _animate, exit: _exit, transition: _transition, whileHover: _whileHover, whileTap: _whileTap, ...otherProps } = props;
       return (
         <button onClick={onClick} disabled={disabled} className={className} {...otherProps}>
           {children}
         </button>
       );
     },
-    h1: ({ children, className, ...props }: any) => {
-      const { initial, animate, exit, transition, whileHover, whileTap, ...otherProps } = props;
+    h1: ({ children, className, ...props }: MockMotionProps) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { initial: _initial, animate: _animate, exit: _exit, transition: _transition, whileHover: _whileHover, whileTap: _whileTap, ...otherProps } = props;
       return (
         <h1 className={className} {...otherProps}>
           {children}
         </h1>
       );
     },
-    p: ({ children, className, ...props }: any) => {
-      const { initial, animate, exit, transition, whileHover, whileTap, ...otherProps } = props;
+    p: ({ children, className, ...props }: MockMotionProps) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { initial: _initial, animate: _animate, exit: _exit, transition: _transition, whileHover: _whileHover, whileTap: _whileTap, ...otherProps } = props;
       return (
         <p className={className} {...otherProps}>
           {children}
@@ -199,7 +217,6 @@ describe('WelcomeModal Component', () => {
   })
 
   it('should prevent form submission when connecting', async () => {
-    const user = userEvent.setup()
     render(<WelcomeModal {...defaultProps} isConnecting={true} />)
 
     const nameInput = screen.getByPlaceholderText('Enter your name...')

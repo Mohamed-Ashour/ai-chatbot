@@ -1,4 +1,4 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ChatPage from '@/app/page'
 
@@ -12,29 +12,37 @@ jest.mock('react-hot-toast', () => ({
 }))
 
 // Mock framer-motion to avoid animation issues in tests
+interface MockMotionProps {
+  children?: React.ReactNode
+  className?: string
+  onClick?: () => void
+  disabled?: boolean
+  [key: string]: unknown
+}
+
 jest.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, ...props }: any) => (
+    div: ({ children, className, ...props }: MockMotionProps) => (
       <div className={className} {...props} data-testid="motion-div">
         {children}
       </div>
     ),
-    header: ({ children, className, ...props }: any) => (
+    header: ({ children, className, ...props }: MockMotionProps) => (
       <header className={className} {...props}>
         {children}
       </header>
     ),
-    button: ({ children, onClick, disabled, className, ...props }: any) => (
+    button: ({ children, onClick, disabled, className, ...props }: MockMotionProps) => (
       <button onClick={onClick} disabled={disabled} className={className} {...props}>
         {children}
       </button>
     ),
-    h2: ({ children, className, ...props }: any) => (
+    h2: ({ children, className, ...props }: MockMotionProps) => (
       <h2 className={className} {...props}>
         {children}
       </h2>
     ),
-    p: ({ children, className, ...props }: any) => (
+    p: ({ children, className, ...props }: MockMotionProps) => (
       <p className={className} {...props}>
         {children}
       </p>
@@ -60,10 +68,21 @@ jest.mock('@/hooks/useChat', () => ({
 }))
 
 // Mock child components to focus on integration behavior
+interface MockMessage {
+  id: string
+  isUser: boolean
+  content: string
+}
+
+interface MockMessageListProps {
+  messages: MockMessage[]
+  isTyping: boolean
+}
+
 jest.mock('@/components/MessageList', () => ({
-  MessageList: ({ messages, isTyping }: any) => (
+  MessageList: ({ messages, isTyping }: MockMessageListProps) => (
     <div data-testid="message-list">
-      {messages.map((msg: any) => (
+      {messages.map((msg: MockMessage) => (
         <div key={msg.id} data-testid="message">
           {msg.isUser ? 'User: ' : 'AI: '}{msg.content}
         </div>
@@ -73,17 +92,23 @@ jest.mock('@/components/MessageList', () => ({
   ),
 }))
 
+interface MockMessageInputProps {
+  onSendMessage: (message: string) => void
+  disabled: boolean
+  placeholder: string
+}
+
 jest.mock('@/components/MessageInput', () => ({
-  MessageInput: ({ onSendMessage, disabled, placeholder }: any) => (
+  MessageInput: ({ onSendMessage, disabled, placeholder }: MockMessageInputProps) => (
     <div data-testid="message-input">
       <input
         data-testid="message-input-field"
         placeholder={placeholder}
         disabled={disabled}
-        onKeyDown={(e: any) => {
-          if (e.key === 'Enter' && e.target.value.trim()) {
-            onSendMessage(e.target.value.trim())
-            e.target.value = ''
+        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Enter' && e.currentTarget.value.trim()) {
+            onSendMessage(e.currentTarget.value.trim())
+            e.currentTarget.value = ''
           }
         }}
       />
@@ -91,24 +116,35 @@ jest.mock('@/components/MessageInput', () => ({
   ),
 }))
 
+interface MockConnectionStatusProps {
+  status: string
+}
+
 jest.mock('@/components/ConnectionStatus', () => ({
-  ConnectionStatus: ({ status }: any) => (
+  ConnectionStatus: ({ status }: MockConnectionStatusProps) => (
     <div data-testid="connection-status" data-status={status}>
       Status: {status}
     </div>
   ),
 }))
 
+interface MockWelcomeModalProps {
+  isOpen: boolean
+  onConnect: (name: string) => void
+  isConnecting: boolean
+  onClose?: () => void
+}
+
 jest.mock('@/components/WelcomeModal', () => ({
-  WelcomeModal: ({ isOpen, onConnect, isConnecting, onClose }: any) =>
+  WelcomeModal: ({ isOpen, onConnect, isConnecting, onClose }: MockWelcomeModalProps) =>
     isOpen ? (
       <div data-testid="welcome-modal">
         <input
           data-testid="name-input"
           placeholder="Enter your name..."
-          onKeyDown={(e: any) => {
-            if (e.key === 'Enter' && e.target.value.trim() && !isConnecting) {
-              onConnect(e.target.value.trim())
+          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+            if (e.key === 'Enter' && e.currentTarget.value.trim() && !isConnecting) {
+              onConnect(e.currentTarget.value.trim())
             }
           }}
         />
@@ -141,7 +177,7 @@ jest.mock('@/components/SessionRestoreLoader', () => ({
   ),
 }))
 
-const { useChat } = require('@/hooks/useChat')
+import { useChat } from '@/hooks/useChat'
 
 describe('ChatPage Integration Tests', () => {
   beforeEach(() => {

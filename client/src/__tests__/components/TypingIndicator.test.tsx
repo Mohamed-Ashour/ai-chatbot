@@ -2,10 +2,16 @@ import { render, screen } from '@testing-library/react'
 import { TypingIndicator } from '@/components/TypingIndicator'
 
 // Mock framer-motion to avoid animation issues in tests
+interface MockMotionProps {
+  children?: React.ReactNode
+  className?: string
+  [key: string]: unknown
+}
+
 jest.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, ...props }: any) => (
-      <div className={className} {...props} data-testid="motion-div">
+    div: ({ children, className, ...props }: MockMotionProps) => (
+      <div className={className} {...props}>
         {children}
       </div>
     ),

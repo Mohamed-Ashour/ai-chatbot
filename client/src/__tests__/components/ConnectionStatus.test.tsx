@@ -3,9 +3,15 @@ import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { ConnectionStatus as ConnectionStatusType } from '@/types/chat'
 
 // Mock framer-motion to avoid animation issues in tests
+interface MockMotionProps {
+  children?: React.ReactNode
+  className?: string
+  [key: string]: unknown
+}
+
 jest.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, ...props }: any) => (
+    div: ({ children, className, ...props }: MockMotionProps) => (
       <div className={className} {...props}>
         {children}
       </div>

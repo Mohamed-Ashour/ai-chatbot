@@ -41,10 +41,10 @@ class MockWebSocket {
 
   url: string
   readyState: number = MockWebSocket.CONNECTING
-  onopen: ((this: WebSocket, ev: Event) => any) | null = null
-  onmessage: ((this: WebSocket, ev: MessageEvent) => any) | null = null
-  onclose: ((this: WebSocket, ev: CloseEvent) => any) | null = null
-  onerror: ((this: WebSocket, ev: Event) => any) | null = null
+  onopen: ((this: WebSocket, ev: Event) => unknown) | null = null
+  onmessage: ((this: WebSocket, ev: MessageEvent) => unknown) | null = null
+  onclose: ((this: WebSocket, ev: CloseEvent) => unknown) | null = null
+  onerror: ((this: WebSocket, ev: Event) => unknown) | null = null
   connectionStartTime: number = Date.now()
 
   constructor(url: string) {
@@ -61,7 +61,7 @@ class MockWebSocket {
   simulateOpen() {
     this.readyState = MockWebSocket.OPEN
     if (this.onopen) {
-      this.onopen(new Event('open') as any)
+      this.onopen(new Event('open') as Event)
     }
   }
 
@@ -74,7 +74,7 @@ class MockWebSocket {
         reason: reason || '',
         wasClean: true,
       } as CloseEvent
-      this.onclose(closeEvent as any)
+      this.onclose(closeEvent as CloseEvent)
     }
   })
 
@@ -82,13 +82,13 @@ class MockWebSocket {
   simulateMessage(data: string) {
     if (this.onmessage) {
       const messageEvent = { data } as MessageEvent
-      this.onmessage(messageEvent as any)
+      this.onmessage(messageEvent as MessageEvent)
     }
   }
 
   simulateError() {
     if (this.onerror) {
-      this.onerror(new Event('error') as any)
+      this.onerror(new Event('error') as Event)
     }
   }
 
@@ -100,7 +100,7 @@ class MockWebSocket {
         reason,
         wasClean: code === 1000,
       } as CloseEvent
-      this.onclose(closeEvent as any)
+      this.onclose(closeEvent as CloseEvent)
     }
   }
 }
@@ -112,7 +112,7 @@ Object.defineProperty(global, 'WebSocket', {
 })
 
 // Helper function to wait for session restoration to complete
-const waitForSessionRestore = async (result: any) => {
+const waitForSessionRestore = async (result: { current: ReturnType<typeof useChat> }) => {
   // According to Jest docs, use waitFor without act for state changes
   await waitFor(
     () => {
@@ -128,7 +128,7 @@ const getMockWebSocket = (): MockWebSocket | undefined => {
 }
 
 // Helper function to connect and open WebSocket
-const connectAndOpen = async (result: any, name = 'John Doe') => {
+const connectAndOpen = async (result: { current: ReturnType<typeof useChat> }, name = 'John Doe') => {
   // Start the connection
   await act(async () => {
     await result.current.connect(name)
