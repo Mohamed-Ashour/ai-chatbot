@@ -31,7 +31,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install server dependencies
@@ -89,7 +89,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
         cache: 'pip'
 
     - name: Install worker dependencies
@@ -174,7 +174,7 @@ jobs:
     - name: Set up Python for linting
       uses: actions/setup-python@v4
       with:
-        python-version: '3.11'
+        python-version: '3.12'
 
     - name: Install Python linting tools
       run: |
@@ -198,7 +198,7 @@ jobs:
 
     - name: Run Python dependency security check
       run: |
-        safety check --json --output safety-report.json || true
+        safety check -o json > safety-report.json || true
 
     - name: Upload security reports
       uses: actions/upload-artifact@v3

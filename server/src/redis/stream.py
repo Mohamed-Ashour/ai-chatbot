@@ -4,7 +4,8 @@ class StreamConsumer:
 
     async def consume_stream(self, stream_channel, count: int, block: int):
         response = await self.redis_client.xread(
-            streams={stream_channel:  '0-0'}, count=count, block=block)
+            streams={stream_channel: "0-0"}, count=count, block=block
+        )
 
         return response
 

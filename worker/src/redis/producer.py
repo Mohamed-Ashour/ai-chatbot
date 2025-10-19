@@ -2,9 +2,11 @@ class Producer:
     def __init__(self, redis_client):
         self.redis_client = redis_client
 
-    async def add_to_stream(self,  data: dict, stream_channel):
+    async def add_to_stream(self, data: dict, stream_channel):
         try:
-            msg_id = await self.redis_client.xadd(name=stream_channel, id="*", fields=data)
+            msg_id = await self.redis_client.xadd(
+                name=stream_channel, id="*", fields=data
+            )
             print(f"Message id {msg_id} added to {stream_channel} stream")
             return msg_id
 
@@ -13,6 +15,6 @@ class Producer:
 
     async def expire(self, stream_channel, seconds: int):
         try:
-            result = await self.redis_client.expire(stream_channel, seconds)
+            await self.redis_client.expire(stream_channel, seconds)
         except Exception as e:
             print(f"Error setting expiration for stream => {e}")

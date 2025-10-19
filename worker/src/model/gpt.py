@@ -1,15 +1,18 @@
 import os
-from dotenv import load_dotenv
-import asyncio
-from groq import AsyncGroq
 from typing import List
+
+from dotenv import load_dotenv
+from groq import AsyncGroq
 from src.schema.chat import Message
 
 load_dotenv()
 
+
 class GPT:
     def __init__(self):
-        self.client = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY"),)
+        self.client = AsyncGroq(
+            api_key=os.environ.get("GROQ_API_KEY"),
+        )
 
     async def query(self, messages: List[Message]) -> Message:
         print("Messages to send to GPT:", messages)
@@ -31,6 +34,5 @@ class GPT:
         print("Full chat completion response:", chat_completion.model_dump())
 
         return Message(
-            msg=chat_completion.choices[0].message.content,
-            source="assistant"
+            msg=chat_completion.choices[0].message.content, source="assistant"
         )
