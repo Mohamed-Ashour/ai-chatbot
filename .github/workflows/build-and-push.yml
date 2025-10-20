@@ -67,6 +67,10 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
+    - name: Pull image for SBOM
+      run: |
+        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}
+
     - name: Generate SBOM
       uses: anchore/sbom-action@v0
       with:
