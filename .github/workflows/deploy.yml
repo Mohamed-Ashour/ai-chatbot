@@ -52,7 +52,7 @@ jobs:
       run: |
         # Copy deployment files to staging server
         scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:~/
-        scp -o StrictHostKeyChecking=no .env.example ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:~/
+        scp -o StrictHostKeyChecking=no .env-example ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:~/
         
         # Deploy on staging server
         ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
@@ -62,7 +62,7 @@ jobs:
           export IMAGE_TAG="latest"
           
           # Create production environment file
-          cp .env.example .env
+          cp .env-example .env
           sed -i 's/REDIS_PASSWORD=.*/REDIS_PASSWORD=${{ secrets.STAGING_REDIS_PASSWORD }}/' .env
           sed -i 's/GROQ_API_KEY=.*/GROQ_API_KEY=${{ secrets.STAGING_GROQ_API_KEY }}/' .env
           
@@ -155,7 +155,7 @@ jobs:
         
         # Copy deployment files to production server
         scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:~/
-        scp -o StrictHostKeyChecking=no .env.example ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:~/
+        scp -o StrictHostKeyChecking=no .env-example ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:~/
         
         # Deploy on production server
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << ENDSSH
@@ -165,7 +165,7 @@ jobs:
           export IMAGE_TAG="$IMAGE_TAG"
           
           # Create production environment file
-          cp .env.example .env
+          cp .env-example .env
           sed -i 's/REDIS_PASSWORD=.*/REDIS_PASSWORD=${{ secrets.PRODUCTION_REDIS_PASSWORD }}/' .env
           sed -i 's/GROQ_API_KEY=.*/GROQ_API_KEY=${{ secrets.PRODUCTION_GROQ_API_KEY }}/' .env
           sed -i 's/NODE_ENV=.*/NODE_ENV=production/' .env

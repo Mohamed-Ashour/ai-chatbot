@@ -32,8 +32,8 @@ log_error() {
 # Check if .env file exists
 check_env() {
     if [ ! -f .env ]; then
-        log_warning ".env file not found. Creating from .env.docker template..."
-        cp .env.docker .env
+        log_warning ".env file not found. Creating from .env-example template..."
+        cp .env-example .env
         log_warning "Please edit .env file with your API keys and configuration before running again."
         exit 1
     fi

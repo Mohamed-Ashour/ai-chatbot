@@ -103,6 +103,7 @@ This is a **microservices architecture** with three main components communicatin
 ## Configuration Patterns
 
 ### Environment Setup
+- **Root**: Copy `.env-example` to `.env`, configure Redis password and Groq API key
 - **Server**: Copy `server/.env.example` to `server/.env`, configure Redis credentials
 - **Worker**: Copy `worker/.env.example` to `worker/.env`, add `GROQ_API_KEY`
 - **Client**: Copy `client/.env.local.example` to `client/.env.local`, set API URLs

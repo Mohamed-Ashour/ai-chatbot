@@ -101,7 +101,7 @@ git clone <your-repo-url>
 cd fullstack-ai-chatbot
 
 # Copy environment file and edit with your API keys
-cp .env.docker .env
+cp .env-example .env
 # Edit .env with your GROQ_API_KEY
 ```
 
@@ -449,19 +449,19 @@ npm run dev
 
 #### Quick Production Deployment
 
+**Now automated with CI/CD! See `QUICK_SETUP.md` for the new deployment process.**
+
 ```bash
-# 1. Prepare production files
-./docker-deploy.sh staging latest prepare
+# Automated deployment via CI/CD:
+# 1. Push to main → deploys to staging
+git push origin main
 
-# 2. Configure environment
-cp .env.production.template .env.production
-# Edit .env.production with your production values
+# 2. Create tag → deploys to production
+git tag v1.0.0
+git push origin v1.0.0
 
-# 3. Deploy to staging
-./docker-deploy.sh staging v1.0.0 deploy
-
-# 4. Deploy to production
-./docker-deploy.sh production v1.0.0 deploy
+# Manual deployment (if needed):
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 #### Docker Compose Production
@@ -495,10 +495,9 @@ services:
 #### Container Registry
 
 ```bash
-# Build and push to your registry
-export DOCKER_REGISTRY=your-registry.com
-./docker-deploy.sh production v1.0.0 build
-./docker-deploy.sh production v1.0.0 push
+# Images are automatically built and pushed via CI/CD
+# to GitHub Container Registry (ghcr.io)
+# See .github/workflows/ for automated build process
 ```
 
 ### 📦 Manual Deployment
