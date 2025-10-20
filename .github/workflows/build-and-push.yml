@@ -55,6 +55,7 @@ jobs:
           type=semver,pattern={{major}}.{{minor}}
 
     - name: Build and push Docker image
+      id: build
       uses: docker/build-push-action@v5
       with:
         context: ./${{ matrix.service }}
@@ -69,7 +70,7 @@ jobs:
     - name: Generate SBOM
       uses: anchore/sbom-action@v0
       with:
-        image: ${{ steps.meta.outputs.tags }}
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}
         output-file: ${{ matrix.service }}-sbom.spdx.json
         format: spdx-json
 
