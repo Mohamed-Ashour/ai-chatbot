@@ -1,4 +1,4 @@
-name: Deploy to Production
+name: Deploy to Staging and Production
 
 on:
   workflow_run:
@@ -33,7 +33,7 @@ jobs:
     if: |
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
-    
+
     environment:
       name: staging
       url: ${{ steps.deploy.outputs.url }}
@@ -53,48 +53,49 @@ jobs:
         # Copy deployment files to staging server
         scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:~/
         scp -o StrictHostKeyChecking=no .env-example ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:~/
-        
+
         # Deploy on staging server
         ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
           # Set environment variables
           export REGISTRY="${{ env.REGISTRY }}"
           export IMAGE_NAME="${{ env.IMAGE_NAME }}"
           export IMAGE_TAG="latest"
-          
+
           # Create production environment file
           cp .env-example .env
           sed -i 's/REDIS_PASSWORD=.*/REDIS_PASSWORD=${{ secrets.STAGING_REDIS_PASSWORD }}/' .env
           sed -i 's/GROQ_API_KEY=.*/GROQ_API_KEY=${{ secrets.STAGING_GROQ_API_KEY }}/' .env
-          
+
           # Login to GitHub Container Registry
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-          
+
           # Pull latest images
           docker compose -f docker-compose.prod.yml pull
-          
+
           # Deploy with zero-downtime
           docker compose -f docker-compose.prod.yml up -d
-          
+
           # Wait for services to be healthy
           timeout 300s bash -c 'until docker compose -f docker-compose.prod.yml ps | grep -q "healthy\|Up"; do sleep 5; done'
-          
+
           # Cleanup old images
           docker image prune -f
-          
-          echo "url=http://${{ secrets.STAGING_HOST }}:3000" >> $GITHUB_OUTPUT
         ENDSSH
+        
+        # Set output after SSH session completes
+        echo "url=http://${{ secrets.STAGING_HOST }}:3000" >> $GITHUB_OUTPUT
 
     - name: Run health checks
       run: |
         # Wait for services to be ready
         sleep 30
-        
+
         # Check API health
         curl -f http://${{ secrets.STAGING_HOST }}:8000/health || exit 1
-        
+
         # Check client health
         curl -f http://${{ secrets.STAGING_HOST }}:3000 || exit 1
-        
+
         # Test token endpoint
         curl -f http://${{ secrets.STAGING_HOST }}:8000/token || exit 1
 
@@ -113,7 +114,7 @@ jobs:
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
-    
+
     environment:
       name: production
       url: ${{ steps.deploy.outputs.url }}
@@ -133,13 +134,13 @@ jobs:
           # Create backup of current deployment
           BACKUP_DIR="backup_$(date +%Y%m%d_%H%M%S)"
           mkdir -p $BACKUP_DIR
-          
+
           # Backup database if Redis has persistence enabled
           docker compose exec redis redis-cli -a ${{ secrets.PRODUCTION_REDIS_PASSWORD }} BGSAVE || true
-          
+
           # Backup environment and compose files
           cp -r .env docker-compose.prod.yml $BACKUP_DIR/ || true
-          
+
           echo "Backup created in $BACKUP_DIR"
         ENDSSH
 
@@ -152,61 +153,62 @@ jobs:
         else
           IMAGE_TAG="latest"
         fi
-        
+
         # Copy deployment files to production server
         scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:~/
         scp -o StrictHostKeyChecking=no .env-example ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:~/
-        
+
         # Deploy on production server
         ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << ENDSSH
           # Set environment variables
           export REGISTRY="${{ env.REGISTRY }}"
           export IMAGE_NAME="${{ env.IMAGE_NAME }}"
           export IMAGE_TAG="$IMAGE_TAG"
-          
+
           # Create production environment file
           cp .env-example .env
           sed -i 's/REDIS_PASSWORD=.*/REDIS_PASSWORD=${{ secrets.PRODUCTION_REDIS_PASSWORD }}/' .env
           sed -i 's/GROQ_API_KEY=.*/GROQ_API_KEY=${{ secrets.PRODUCTION_GROQ_API_KEY }}/' .env
           sed -i 's/NODE_ENV=.*/NODE_ENV=production/' .env
-          
+
           # Login to GitHub Container Registry
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-          
+
           # Pull specific version images
           docker compose -f docker-compose.prod.yml pull
-          
+
           # Rolling deployment with health checks
           docker compose -f docker-compose.prod.yml up -d --wait
-          
+
           # Verify deployment
           timeout 300s bash -c 'until docker compose -f docker-compose.prod.yml ps | grep -q "healthy\|Up"; do sleep 5; done'
-          
+
           # Cleanup old images (keep last 3 versions)
           docker images | grep ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} | sort -k2 -V | head -n -3 | awk '{print \$3}' | xargs -r docker rmi || true
-          
-          echo "url=https://${{ secrets.PRODUCTION_DOMAIN }}" >> \$GITHUB_OUTPUT
         ENDSSH
+        
+        # Set output after SSH session completes
+        echo "url=https://${{ secrets.PRODUCTION_DOMAIN }}" >> $GITHUB_OUTPUT
 
     - name: Run production health checks
       if: ${{ !github.event.inputs.force_deploy }}
       run: |
         # Wait for services to be ready
         sleep 60
-        
+
         # Check API health
         curl -f https://${{ secrets.PRODUCTION_DOMAIN }}/api/health || exit 1
-        
+
         # Check client health
         curl -f https://${{ secrets.PRODUCTION_DOMAIN }} || exit 1
-        
+
         # Run basic functionality test
         TOKEN_RESPONSE=$(curl -s https://${{ secrets.PRODUCTION_DOMAIN }}/api/token)
         if [[ $? -ne 0 ]]; then
           echo "❌ Token endpoint failed"
           exit 1
         fi
-        
+
         echo "✅ All health checks passed"
 
     - name: Rollback on failure
@@ -218,14 +220,14 @@ jobs:
           LATEST_BACKUP=$(ls -t | grep "backup_" | head -n 1)
           if [[ -n "$LATEST_BACKUP" ]]; then
             echo "Rolling back to $LATEST_BACKUP"
-            
+
             # Restore files
             cp $LATEST_BACKUP/.env . || true
             cp $LATEST_BACKUP/docker-compose.prod.yml . || true
-            
+
             # Restart services with previous version
             docker compose -f docker-compose.prod.yml up -d
-            
+
             echo "✅ Rollback completed"
           else
             echo "❌ No backup found for rollback"
@@ -266,10 +268,10 @@ jobs:
             package_name: '${{ env.IMAGE_NAME }}/server',
             org: context.repo.owner,
           });
-          
+
           // Keep last 10 versions, delete older ones
           const versionsToDelete = packages.data.slice(10);
-          
+
           for (const version of versionsToDelete) {
             await github.rest.packages.deletePackageVersionForOrg({
               package_type: 'container',
