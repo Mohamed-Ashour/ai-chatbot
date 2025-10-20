@@ -69,12 +69,17 @@ jobs:
 
     - name: Pull image for SBOM
       run: |
-        docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}
+        IMAGE_REF="$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}' | tr '[:upper:]' '[:lower:]')@${{ steps.build.outputs.digest }}"
+        docker pull "$IMAGE_REF"
+
+    - name: Set image reference for SBOM
+      id: sbom-image
+      run: echo "ref=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}' | tr '[:upper:]' '[:lower:]')@${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
 
     - name: Generate SBOM
       uses: anchore/sbom-action@v0
       with:
-        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}@${{ steps.build.outputs.digest }}
+        image: ${{ steps.sbom-image.outputs.ref }}
         output-file: ${{ matrix.service }}-sbom.spdx.json
         format: spdx-json
 
