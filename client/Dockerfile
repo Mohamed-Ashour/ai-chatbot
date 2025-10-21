@@ -27,8 +27,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
 # Accept build-time arguments for Next.js public variables
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000
-ARG NEXT_PUBLIC_WS_URL=ws://localhost:8000
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WS_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_WS_URL=$NEXT_PUBLIC_WS_URL
 
@@ -77,6 +77,6 @@ USER nextjs
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/api/health || exit 1
+  CMD curl -f http://localhost:3000/api/health || exit 1
 
 CMD ["node", "server.js"]

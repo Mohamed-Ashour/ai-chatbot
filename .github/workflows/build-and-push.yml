@@ -2,12 +2,12 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [main]
+    tags: ["v*"]
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [ main ]
+    branches: [main]
 
 env:
   REGISTRY: ghcr.io
@@ -18,76 +18,110 @@ jobs:
     runs-on: ubuntu-latest
     # Only run if CI workflow succeeded or this is a direct push to main
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
-    
+
     permissions:
       contents: read
       packages: write
 
     strategy:
       matrix:
-        service: [server, worker, client]
+        include:
+          # Server and worker are environment-agnostic
+          - service: server
+            environment: default
+          - service: worker
+            environment: default
+          # Client built separately for staging and production
+          - service: client
+            environment: staging
+          - service: client
+            environment: production
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-    - name: Log in to Container Registry
-      uses: docker/login-action@v3
-      with:
-        registry: ${{ env.REGISTRY }}
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=sha,prefix=sha-
-          type=raw,value=latest,enable={{is_default_branch}}
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
+      - name: Set environment variables for build
+        id: build-env
+        run: |
+          if [ "${{ matrix.service }}" = "client" ]; then
+            # Client needs environment-specific builds
+            if [ "${{ matrix.environment }}" = "production" ]; then
+              echo "api_url=${{ secrets.PRODUCTION_API_URL }}" >> $GITHUB_OUTPUT
+              echo "ws_url=${{ secrets.PRODUCTION_WS_URL }}" >> $GITHUB_OUTPUT
+              echo "env_suffix=-prod" >> $GITHUB_OUTPUT
+            else
+              echo "api_url=${{ secrets.STAGING_API_URL }}" >> $GITHUB_OUTPUT
+              echo "ws_url=${{ secrets.STAGING_WS_URL }}" >> $GITHUB_OUTPUT
+              echo "env_suffix=-staging" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Server and worker don't need environment suffix or URLs
+            echo "api_url=" >> $GITHUB_OUTPUT
+            echo "ws_url=" >> $GITHUB_OUTPUT
+            echo "env_suffix=" >> $GITHUB_OUTPUT
+          fi
 
-    - name: Build and push Docker image
-      id: build
-      uses: docker/build-push-action@v5
-      with:
-        context: ./${{ matrix.service }}
-        file: ./${{ matrix.service }}/Dockerfile
-        platforms: linux/amd64,linux/arm64
-        push: true
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
+          tags: |
+            type=ref,event=branch,suffix=${{ steps.build-env.outputs.env_suffix }}
+            type=ref,event=pr,suffix=${{ steps.build-env.outputs.env_suffix }}
+            type=sha,prefix=sha-,suffix=${{ steps.build-env.outputs.env_suffix }}
+            type=raw,value=latest${{ steps.build-env.outputs.env_suffix }},enable={{is_default_branch}}
+            type=semver,pattern={{version}},suffix=${{ steps.build-env.outputs.env_suffix }}
+            type=semver,pattern={{major}}.{{minor}},suffix=${{ steps.build-env.outputs.env_suffix }}
 
-    - name: Pull image for SBOM
-      run: |
-        IMAGE_REF="$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}' | tr '[:upper:]' '[:lower:]')@${{ steps.build.outputs.digest }}"
-        docker pull "$IMAGE_REF"
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.service }}
+          file: ./${{ matrix.service }}/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ matrix.service == 'client' && steps.build-env.outputs.api_url || '' }}
+            NEXT_PUBLIC_WS_URL=${{ matrix.service == 'client' && steps.build-env.outputs.ws_url || '' }}
 
-    - name: Set image reference for SBOM
-      id: sbom-image
-      run: echo "ref=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}' | tr '[:upper:]' '[:lower:]')@${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
+      - name: Pull image for SBOM
+        run: |
+          IMAGE_REF="$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}' | tr '[:upper:]' '[:lower:]')@${{ steps.build.outputs.digest }}"
+          docker pull "$IMAGE_REF"
 
-    - name: Generate SBOM
-      uses: anchore/sbom-action@v0
-      with:
-        image: ${{ steps.sbom-image.outputs.ref }}
-        output-file: ${{ matrix.service }}-sbom.spdx.json
-        format: spdx-json
+      - name: Set image reference for SBOM
+        id: sbom-image
+        run: echo "ref=$(echo '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}' | tr '[:upper:]' '[:lower:]')@${{ steps.build.outputs.digest }}" >> $GITHUB_OUTPUT
 
-    - name: Upload SBOM
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.service }}-sbom
-        path: ${{ matrix.service }}-sbom.spdx.json
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ steps.sbom-image.outputs.ref }}
+          output-file: ${{ matrix.service }}-sbom.spdx.json
+          format: spdx-json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.service }}-sbom
+          path: ${{ matrix.service }}-sbom.spdx.json
 
   # Create multi-arch manifest and update README
   post-build:
@@ -96,23 +130,23 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Create Release Notes
-      if: startsWith(github.ref, 'refs/tags/')
-      run: |
-        echo "## Docker Images Built" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "The following Docker images have been built and pushed:" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/server:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/worker:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/client:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Usage" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-        echo "# Pull and run with docker-compose" >> $GITHUB_STEP_SUMMARY
-        echo "docker compose -f docker-compose.prod.yml up -d" >> $GITHUB_STEP_SUMMARY
-        echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+      - name: Create Release Notes
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "## Docker Images Built" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The following Docker images have been built and pushed:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/server:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/worker:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/client:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Usage" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
+          echo "# Pull and run with docker-compose" >> $GITHUB_STEP_SUMMARY
+          echo "docker compose -f docker-compose.prod.yml up -d" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

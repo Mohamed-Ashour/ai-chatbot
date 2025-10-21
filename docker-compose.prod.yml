@@ -86,15 +86,15 @@ services:
       replicas: 1
 
   # Next.js Client
+  # Use CLIENT_ENV=staging or CLIENT_ENV=production to select the appropriate image
+  # Example: CLIENT_ENV=production docker compose -f docker-compose.prod.yml up -d
   client:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-fullstack-ai-chatbot}/client:${IMAGE_TAG:-latest}
-    container_name: chatbot-client-prod
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-fullstack-ai-chatbot}/client:${IMAGE_TAG:-latest-${CLIENT_ENV:-staging}}
+    container_name: chatbot-client-${CLIENT_ENV:-staging}
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
-      - NEXT_PUBLIC_WS_URL=${NEXT_PUBLIC_WS_URL:-ws://localhost:8000}
       - NODE_ENV=production
     depends_on:
       - server

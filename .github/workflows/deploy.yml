@@ -67,8 +67,6 @@ jobs:
             sed -i "s|GROQ_API_KEY=.*|GROQ_API_KEY=${{ secrets.STAGING_GROQ_API_KEY }}|" .env
             sed -i "s|REDIS_PASSWORD=.*|REDIS_PASSWORD=${{ secrets.STAGING_REDIS_PASSWORD }}|" .env
             sed -i "s|CORS_ORIGINS=.*|CORS_ORIGINS=http://${{ secrets.STAGING_HOST }}:3000,http://client:3000|" .env
-            sed -i "s|NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=http://${{ secrets.STAGING_HOST }}:8000|" .env
-            sed -i "s|NEXT_PUBLIC_WS_URL=.*|NEXT_PUBLIC_WS_URL=ws://${{ secrets.STAGING_HOST }}:8000|" .env
 
             # Login to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
@@ -176,8 +174,6 @@ jobs:
             sed -i "s|GROQ_API_KEY=.*|GROQ_API_KEY=${{ secrets.PRODUCTION_GROQ_API_KEY }}|" .env
             sed -i "s|REDIS_PASSWORD=.*|REDIS_PASSWORD=${{ secrets.PRODUCTION_REDIS_PASSWORD }}|" .env
             sed -i "s|CORS_ORIGINS=.*|CORS_ORIGINS=https://${{ secrets.PRODUCTION_DOMAIN }},http://client:3000|" .env
-            sed -i "s|NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=https://${{ secrets.PRODUCTION_DOMAIN }}/api|" .env
-            sed -i "s|NEXT_PUBLIC_WS_URL=.*|NEXT_PUBLIC_WS_URL=wss://${{ secrets.PRODUCTION_DOMAIN }}/api|" .env
 
             # Add production-specific variables
             echo "NODE_ENV=production" >> .env
@@ -276,12 +272,15 @@ jobs:
           script: |
             const packages = await github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg({
               package_type: 'container',
-              package_name: '${{ env.IMAGE_NAME }}/server',
+              package_name: '${{ github.event.repository.name }}/server',
               org: context.repo.owner,
             });
 
+            // Sort by created_at descending (newest first)
+            const sorted = packages.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
             // Keep last 10 versions, delete older ones
-            const versionsToDelete = packages.data.slice(10);
+            const versionsToDelete = sorted.slice(10);
 
             for (const version of versionsToDelete) {
               await github.rest.packages.deletePackageVersionForOrg({
