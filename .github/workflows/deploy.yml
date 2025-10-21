@@ -70,22 +70,14 @@ jobs:
             sed -i "s|NEXT_PUBLIC_API_URL=.*|NEXT_PUBLIC_API_URL=http://${{ secrets.STAGING_HOST }}:8000|" .env
             sed -i "s|NEXT_PUBLIC_WS_URL=.*|NEXT_PUBLIC_WS_URL=ws://${{ secrets.STAGING_HOST }}:8000|" .env
 
-          # Login to GitHub Container Registry
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+            # Login to GitHub Container Registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
-          # Pull latest images for server and worker
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/server:latest
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/worker:latest
+            # Pull latest images
+            docker compose -f docker-compose.prod.yml pull
 
-          # Build client image with staging environment variables
-          docker build \
-            --build-arg NEXT_PUBLIC_API_URL=http://${{ secrets.STAGING_HOST }}:8000 \
-            --build-arg NEXT_PUBLIC_WS_URL=ws://${{ secrets.STAGING_HOST }}:8000 \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/client:latest \
-            ./client
-
-          # Deploy with zero-downtime
-          docker compose -f docker-compose.prod.yml up -d
+            # Deploy with zero-downtime
+            docker compose -f docker-compose.prod.yml up -d
 
             # Wait for services to be healthy
             timeout 300s bash -c 'until docker compose -f docker-compose.prod.yml ps | grep -q "healthy\|Up"; do sleep 5; done'
@@ -190,22 +182,14 @@ jobs:
             # Add production-specific variables
             echo "NODE_ENV=production" >> .env
 
-          # Login to GitHub Container Registry
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+            # Login to GitHub Container Registry
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
-          # Pull specific version images for server and worker
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/server:\$IMAGE_TAG
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/worker:\$IMAGE_TAG
+            # Pull specific version images
+            docker compose -f docker-compose.prod.yml pull
 
-          # Build client image with production environment variables
-          docker build \
-            --build-arg NEXT_PUBLIC_API_URL=https://${{ secrets.PRODUCTION_DOMAIN }}/api \
-            --build-arg NEXT_PUBLIC_WS_URL=wss://${{ secrets.PRODUCTION_DOMAIN }}/api \
-            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/client:\$IMAGE_TAG \
-            ./client
-
-          # Rolling deployment with health checks
-          docker compose -f docker-compose.prod.yml up -d --wait
+            # Rolling deployment with health checks
+            docker compose -f docker-compose.prod.yml up -d --wait
 
             # Verify deployment
             timeout 300s bash -c 'until docker compose -f docker-compose.prod.yml ps | grep -q "healthy\|Up"; do sleep 5; done'
