@@ -272,23 +272,68 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const packages = await github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg({
-              package_type: 'container',
-              package_name: '${{ github.event.repository.name }}/server',
-              org: context.repo.owner,
-            });
+            const services = ['server', 'worker', 'client'];
+            let hasErrors = false;
+            let successCount = 0;
+            
+            for (const service of services) {
+              try {
+                console.log(`🧹 Cleaning up old versions for ${service}...`);
+                
+                const packages = await github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg({
+                  package_type: 'container',
+                  package_name: `${{ github.repository }}/${service}`,
+                  org: context.repo.owner,
+                });
 
-            // Sort by created_at descending (newest first)
-            const sorted = packages.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                // Sort by created_at descending (newest first)
+                const sorted = packages.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-            // Keep last 10 versions, delete older ones
-            const versionsToDelete = sorted.slice(10);
+                // Keep last 10 versions, delete older ones
+                const versionsToDelete = sorted.slice(10);
+                
+                console.log(`📦 Found ${packages.data.length} versions for ${service}, deleting ${versionsToDelete.length} old versions`);
 
-            for (const version of versionsToDelete) {
-              await github.rest.packages.deletePackageVersionForOrg({
-                package_type: 'container',
-                package_name: '${{ env.IMAGE_NAME }}/server',
-                org: context.repo.owner,
-                package_version_id: version.id,
-              });
+                let deletedCount = 0;
+                for (const version of versionsToDelete) {
+                  try {
+                    await github.rest.packages.deletePackageVersionForOrg({
+                      package_type: 'container',
+                      package_name: `${{ github.repository }}/${service}`,
+                      org: context.repo.owner,
+                      package_version_id: version.id,
+                    });
+                    deletedCount++;
+                  } catch (error) {
+                    console.log(`⚠️ Failed to delete version ${version.id} for ${service}: ${error.message}`);
+                    hasErrors = true;
+                  }
+                }
+                
+                console.log(`✅ Successfully deleted ${deletedCount}/${versionsToDelete.length} old versions for ${service}`);
+                successCount++;
+                
+              } catch (error) {
+                if (error.status === 404) {
+                  console.log(`ℹ️ Package ${service} not found - likely no versions published yet`);
+                  successCount++; // This is expected for new repos
+                } else {
+                  console.error(`❌ Error accessing package ${service}: ${error.message}`);
+                  hasErrors = true;
+                }
+              }
+            }
+            
+            // Summary
+            console.log(`\n📊 Cleanup Summary:`);
+            console.log(`✅ Services processed: ${successCount}/${services.length}`);
+            console.log(`${hasErrors ? '⚠️' : '✅'} Errors encountered: ${hasErrors ? 'Yes' : 'None'}`);
+            
+            // Only fail the job if we couldn't process any services
+            if (successCount === 0) {
+              throw new Error('Failed to cleanup any packages');
+            }
+            
+            if (hasErrors) {
+              console.log('\n⚠️ Job completed with warnings - some cleanup operations failed');
             }
