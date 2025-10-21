@@ -2,12 +2,12 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [main]
-    tags: ["v*"]
+    branches: [ main ]
+    tags: [ 'v*' ]
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [main]
+    branches: [ main ]
 
 env:
   REGISTRY: ghcr.io
@@ -120,7 +120,7 @@ jobs:
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.service }}-sbom
+          name: ${{ matrix.service }}${{ steps.build-env.outputs.env_suffix }}-sbom
           path: ${{ matrix.service }}-sbom.spdx.json
 
   # Create multi-arch manifest and update README
@@ -142,11 +142,15 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/server:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/worker:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/client:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/client:${{ github.ref_name }}-staging\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/client:${{ github.ref_name }}-prod\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Usage" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`bash" >> $GITHUB_STEP_SUMMARY
-          echo "# Pull and run with docker-compose" >> $GITHUB_STEP_SUMMARY
-          echo "docker compose -f docker-compose.prod.yml up -d" >> $GITHUB_STEP_SUMMARY
+          echo "# Staging" >> $GITHUB_STEP_SUMMARY
+          echo "CLIENT_ENV=staging docker compose -f docker-compose.prod.yml up -d" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Production" >> $GITHUB_STEP_SUMMARY
+          echo "CLIENT_ENV=production docker compose -f docker-compose.prod.yml up -d" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
