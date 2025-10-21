@@ -89,7 +89,7 @@ services:
   # Use CLIENT_ENV=staging or CLIENT_ENV=production to select the appropriate image
   # Example: CLIENT_ENV=production docker compose -f docker-compose.prod.yml up -d
   client:
-    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-fullstack-ai-chatbot}/client:${IMAGE_TAG:-latest-${CLIENT_ENV:-staging}}
+    image: ${REGISTRY:-ghcr.io}/${IMAGE_NAME:-fullstack-ai-chatbot}/client:${CLIENT_IMAGE_TAG:-${IMAGE_TAG:-latest}-${CLIENT_ENV:-staging}}
     container_name: chatbot-client-${CLIENT_ENV:-staging}
     restart: unless-stopped
     ports:

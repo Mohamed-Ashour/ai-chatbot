@@ -59,7 +59,7 @@ jobs:
             if [ "${{ matrix.environment }}" = "production" ]; then
               echo "api_url=${{ secrets.PRODUCTION_API_URL }}" >> $GITHUB_OUTPUT
               echo "ws_url=${{ secrets.PRODUCTION_WS_URL }}" >> $GITHUB_OUTPUT
-              echo "env_suffix=-prod" >> $GITHUB_OUTPUT
+              echo "env_suffix=-production" >> $GITHUB_OUTPUT
             else
               echo "api_url=${{ secrets.STAGING_API_URL }}" >> $GITHUB_OUTPUT
               echo "ws_url=${{ secrets.STAGING_WS_URL }}" >> $GITHUB_OUTPUT
@@ -143,7 +143,7 @@ jobs:
           echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/server:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/worker:${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/client:${{ github.ref_name }}-staging\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/client:${{ github.ref_name }}-prod\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/client:${{ github.ref_name }}-production\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Usage" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
