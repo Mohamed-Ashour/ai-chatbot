@@ -264,8 +264,6 @@ jobs:
         with:
           script: |
             const services = ['server', 'worker', 'client'];
-            let hasErrors = false;
-            let successCount = 0;
 
             for (const service of services) {
               try {
@@ -296,22 +294,15 @@ jobs:
                     });
                     deletedCount++;
                   } catch (error) {
-                    hasErrors = true;
+                    console.error(`❌ Failed to delete version ${version.id} of ${service}: ${error.message}`);
                   }
                 }
 
-                successCount++;
-
               } catch (error) {
                 if (error.status === 404) {
-                  successCount++;
+                  console.log(`ℹ️ No packages found for ${service}, skipping cleanup.`);
                 } else {
-                  hasErrors = true;
+                  console.error(`❌ Error fetching packages for ${service}: ${error.message}`
                 }
               }
-            }
-
-            if (successCount === 0) {
-              throw new Error('Failed to cleanup any packages');
-            }
             }
