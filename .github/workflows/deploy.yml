@@ -171,7 +171,9 @@ jobs:
         run: |
           # Get the tag name for production deployment
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == refs/tags/* ]]; then
-            IMAGE_TAG=${GITHUB_REF#refs/tags/}
+            # Extract tag and remove 'v' prefix if present to match docker metadata action
+            FULL_TAG=${GITHUB_REF#refs/tags/}
+            IMAGE_TAG=${FULL_TAG#v}
           else
             IMAGE_TAG="latest"
           fi
