@@ -59,6 +59,7 @@ jobs:
             export IMAGE_NAME="${{ env.IMAGE_NAME }}"
             export IMAGE_TAG="latest"
             export CLIENT_ENV="staging"
+            export CLIENT_IMAGE_TAG="latest-staging"
 
             # Create staging environment file from template
             cp .env-example .env
@@ -162,6 +163,7 @@ jobs:
             export IMAGE_NAME="${{ env.IMAGE_NAME }}"
             export IMAGE_TAG="$IMAGE_TAG"
             export CLIENT_ENV="production"
+            export CLIENT_IMAGE_TAG="$IMAGE_TAG-production"
 
             # Create production environment file from template
             cp .env-example .env
