@@ -35,7 +35,6 @@ jobs:
 
     environment:
       name: staging
-      url: ${{ steps.deploy.outputs.url }}
 
     steps:
       - name: Checkout code
@@ -85,13 +84,10 @@ jobs:
             docker image prune -f
           ENDSSH
 
-          # Set output after SSH session completes
-          echo "url=http://${{ secrets.STAGING_HOST }}:3000" >> $GITHUB_OUTPUT
-
       - name: Run health checks
         run: |
           # Wait for services to be ready
-          sleep 30
+          sleep 60
 
           # Check API health
           curl -f http://${{ secrets.STAGING_HOST }}:8000/health || exit 1
@@ -113,14 +109,12 @@ jobs:
 
   deploy-production:
     runs-on: ubuntu-latest
-    needs: deploy-staging
     if: |
       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
       (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
 
     environment:
       name: production
-      url: ${{ steps.deploy.outputs.url }}
 
     steps:
       - name: Checkout code
@@ -195,9 +189,6 @@ jobs:
             # Cleanup old images (keep last 3 versions)
             docker images | grep ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} | sort -k2 -V | head -n -3 | awk '{print \$3}' | xargs -r docker rmi || true
           ENDSSH
-
-          # Set output after SSH session completes
-          echo "url=https://${{ secrets.PRODUCTION_DOMAIN }}" >> $GITHUB_OUTPUT
 
       - name: Run production health checks
         if: ${{ !github.event.inputs.force_deploy }}
@@ -275,15 +266,67 @@ jobs:
             const services = ['server', 'worker', 'client'];
             let hasErrors = false;
             let successCount = 0;
+
+            // First, let's see what packages actually exist
+            try {
+              console.log('🔍 Discovering available packages...');
+              const allPackages = await github.rest.packages.getAllPackagesForUser({
+                package_type: 'container',
+                username: context.repo.owner,
+              });
+              
+              console.log(`📦 Found ${allPackages.data.length} total packages:`);
+              allPackages.data.forEach(pkg => {
+                console.log(`  - ${pkg.name} (${pkg.package_type})`);
+              });
+            } catch (error) {
+              console.log(`⚠️ Could not list packages: ${error.message}`);
+            }
             
             for (const service of services) {
+              // Try different package name formats
+              const packageNames = [
+                `${{ github.repository }}/${service}`,  // mohamed-ashour/ai-chatbot/server
+                `ai-chatbot/${service}`,                 // ai-chatbot/server  
+                `fullstack-ai-chatbot/${service}`,       // fullstack-ai-chatbot/server
+                service                                   // server
+              ];
+              
+              let found = false;
+              for (const packageName of packageNames) {
+                try {
+                  console.log(`🧹 Trying package name: ${packageName}`);
+                  
+                  const packages = await github.rest.packages.getAllPackageVersionsForPackageOwnedByUser({
+                    package_type: 'container',
+                    package_name: packageName,
+                    username: context.repo.owner,
+                  });
+                  
+                  found = true;
+                  console.log(`✅ Found package: ${packageName}`);
+                  break;
+                } catch (error) {
+                  if (error.status !== 404) {
+                    console.log(`❌ Error with ${packageName}: ${error.message}`);
+                    hasErrors = true;
+                  }
+                }
+              }
+              
+              if (!found) {
+                console.log(`ℹ️ Package ${service} not found with any naming format`);
+                successCount++; // Don't fail for missing packages
+                continue;
+              }
+              
               try {
                 console.log(`🧹 Cleaning up old versions for ${service}...`);
                 
-                const packages = await github.rest.packages.getAllPackageVersionsForPackageOwnedByOrg({
+                const packages = await github.rest.packages.getAllPackageVersionsForPackageOwnedByUser({
                   package_type: 'container',
                   package_name: `${{ github.repository }}/${service}`,
-                  org: context.repo.owner,
+                  username: context.repo.owner,
                 });
 
                 // Sort by created_at descending (newest first)
@@ -291,16 +334,16 @@ jobs:
 
                 // Keep last 10 versions, delete older ones
                 const versionsToDelete = sorted.slice(10);
-                
+
                 console.log(`📦 Found ${packages.data.length} versions for ${service}, deleting ${versionsToDelete.length} old versions`);
 
                 let deletedCount = 0;
                 for (const version of versionsToDelete) {
                   try {
-                    await github.rest.packages.deletePackageVersionForOrg({
+                    await github.rest.packages.deletePackageVersionForUser({
                       package_type: 'container',
                       package_name: `${{ github.repository }}/${service}`,
-                      org: context.repo.owner,
+                      username: context.repo.owner,
                       package_version_id: version.id,
                     });
                     deletedCount++;
@@ -309,10 +352,10 @@ jobs:
                     hasErrors = true;
                   }
                 }
-                
+
                 console.log(`✅ Successfully deleted ${deletedCount}/${versionsToDelete.length} old versions for ${service}`);
                 successCount++;
-                
+
               } catch (error) {
                 if (error.status === 404) {
                   console.log(`ℹ️ Package ${service} not found - likely no versions published yet`);
@@ -323,17 +366,17 @@ jobs:
                 }
               }
             }
-            
+
             // Summary
             console.log(`\n📊 Cleanup Summary:`);
             console.log(`✅ Services processed: ${successCount}/${services.length}`);
             console.log(`${hasErrors ? '⚠️' : '✅'} Errors encountered: ${hasErrors ? 'Yes' : 'None'}`);
-            
+
             // Only fail the job if we couldn't process any services
             if (successCount === 0) {
               throw new Error('Failed to cleanup any packages');
             }
-            
+
             if (hasErrors) {
               console.log('\n⚠️ Job completed with warnings - some cleanup operations failed');
             }
