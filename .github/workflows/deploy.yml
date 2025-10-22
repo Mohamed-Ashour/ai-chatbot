@@ -72,6 +72,30 @@ jobs:
             # Login to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
+            # Debug: Show what images we're trying to pull
+            echo "=== Deployment Configuration ==="
+            echo "REGISTRY: $REGISTRY"
+            echo "IMAGE_NAME: $IMAGE_NAME"
+            echo "IMAGE_TAG: $IMAGE_TAG"
+            echo "CLIENT_ENV: $CLIENT_ENV"
+            echo "CLIENT_IMAGE_TAG: $CLIENT_IMAGE_TAG"
+            echo ""
+            echo "=== Expected Images ==="
+            echo "Server: $REGISTRY/$IMAGE_NAME/server:$IMAGE_TAG"
+            echo "Worker: $REGISTRY/$IMAGE_NAME/worker:$IMAGE_TAG"
+            echo "Client: $REGISTRY/$IMAGE_NAME/client:$CLIENT_IMAGE_TAG"
+            echo ""
+
+            # Try to pull images individually to see which ones fail
+            echo "=== Pulling Server Image ==="
+            docker pull $REGISTRY/$IMAGE_NAME/server:$IMAGE_TAG || echo "Failed to pull server image"
+
+            echo "=== Pulling Worker Image ==="
+            docker pull $REGISTRY/$IMAGE_NAME/worker:$IMAGE_TAG || echo "Failed to pull worker image"
+
+            echo "=== Pulling Client Image ==="
+            docker pull $REGISTRY/$IMAGE_NAME/client:$CLIENT_IMAGE_TAG || echo "Failed to pull client image"
+
             # Pull latest images
             docker compose -f docker-compose.prod.yml pull
 
@@ -178,6 +202,30 @@ jobs:
 
             # Login to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+            # Debug: Show what images we're trying to pull
+            echo "=== Production Deployment Configuration ==="
+            echo "REGISTRY: $REGISTRY"
+            echo "IMAGE_NAME: $IMAGE_NAME"
+            echo "IMAGE_TAG: $IMAGE_TAG"
+            echo "CLIENT_ENV: $CLIENT_ENV"
+            echo "CLIENT_IMAGE_TAG: $CLIENT_IMAGE_TAG"
+            echo ""
+            echo "=== Expected Images ==="
+            echo "Server: $REGISTRY/$IMAGE_NAME/server:$IMAGE_TAG"
+            echo "Worker: $REGISTRY/$IMAGE_NAME/worker:$IMAGE_TAG"
+            echo "Client: $REGISTRY/$IMAGE_NAME/client:$CLIENT_IMAGE_TAG"
+            echo ""
+
+            # Try to pull images individually to see which ones fail
+            echo "=== Pulling Server Image ==="
+            docker pull $REGISTRY/$IMAGE_NAME/server:$IMAGE_TAG || echo "Failed to pull server image"
+
+            echo "=== Pulling Worker Image ==="
+            docker pull $REGISTRY/$IMAGE_NAME/worker:$IMAGE_TAG || echo "Failed to pull worker image"
+
+            echo "=== Pulling Client Image ==="
+            docker pull $REGISTRY/$IMAGE_NAME/client:$CLIENT_IMAGE_TAG || echo "Failed to pull client image"
 
             # Pull specific version images
             docker compose -f docker-compose.prod.yml pull
