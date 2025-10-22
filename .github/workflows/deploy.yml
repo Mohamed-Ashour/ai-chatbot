@@ -188,6 +188,8 @@ jobs:
             export IMAGE_TAG="$IMAGE_TAG"
             export CLIENT_ENV="production"
             export CLIENT_IMAGE_TAG="$IMAGE_TAG-production"
+            echo "1 CLIENT_ENV: $CLIENT_ENV"
+            echo "2 CLIENT_IMAGE_TAG: $CLIENT_IMAGE_TAG"
 
             # Create production environment file from template
             cp .env-example .env
