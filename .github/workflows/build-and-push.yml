@@ -81,9 +81,9 @@ jobs:
             type=ref,event=branch,suffix=${{ steps.build-env.outputs.env_suffix }}
             type=ref,event=pr,suffix=${{ steps.build-env.outputs.env_suffix }}
             type=sha,prefix=sha-,suffix=${{ steps.build-env.outputs.env_suffix }}
-            type=raw,value=latest${{ steps.build-env.outputs.env_suffix }},enable={{is_default_branch}}
             type=semver,pattern={{version}},suffix=${{ steps.build-env.outputs.env_suffix }}
             type=semver,pattern={{major}}.{{minor}},suffix=${{ steps.build-env.outputs.env_suffix }}
+            type=raw,value=latest${{ steps.build-env.outputs.env_suffix }}
 
       - name: Build and push Docker image
         id: build
