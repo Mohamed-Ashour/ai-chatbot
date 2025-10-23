@@ -271,53 +271,25 @@ jobs:
       fail-fast: false
 
     steps:
-      - name: List all packages for debugging
-        continue-on-error: true
-        run: |
-          echo "=== Listing all container packages for debugging ==="
-
-          # List org packages
-          echo "Organization packages:"
-          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/orgs/${{ github.repository_owner }}/packages?package_type=container" | \
-            jq -r '.[] | .name' || echo "No org packages or jq not available"
-
-          # List user packages
-          echo "User packages:"
-          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/${{ github.repository_owner }}/packages?package_type=container" | \
-            jq -r '.[] | .name' || echo "No user packages or jq not available"
       - name: Check if ${{ matrix.service }} package exists
         id: check-package
         continue-on-error: true
         run: |
           # The package name for delete-package-versions action
-          REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          # Extract just the repo name (without owner) for package name
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
           PACKAGE_NAME="${REPO_NAME}/${{ matrix.service }}"
           echo "Checking package: $PACKAGE_NAME"
 
-          # Try multiple API endpoints to find the package
-          # First try as organization package
-          ORG_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME/\//%2F}" 2>/dev/null || echo "")
+          # Check if package exists
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME/\//%2F}")
 
-          # Then try as user package
-          USER_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME/\//%2F}" 2>/dev/null || echo "")
-
-          if echo "$ORG_RESPONSE" | grep -q '"name"' || echo "$USER_RESPONSE" | grep -q '"name"'; then
+          if [[ "$RESPONSE" == "200" ]]; then
             echo "exists=true" >> $GITHUB_OUTPUT
             echo "package-name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-            echo "✅ Package $PACKAGE_NAME exists"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Package $PACKAGE_NAME not found in org or user packages, skipping cleanup"
-            echo "Debug - Org response: $ORG_RESPONSE"
-            echo "Debug - User response: $USER_RESPONSE"
           fi
 
       - name: Delete untagged ${{ matrix.service }} packages
