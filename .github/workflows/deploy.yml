@@ -271,24 +271,53 @@ jobs:
       fail-fast: false
 
     steps:
+      - name: List all packages for debugging
+        continue-on-error: true
+        run: |
+          echo "=== Listing all container packages for debugging ==="
+
+          # List org packages
+          echo "Organization packages:"
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/orgs/${{ github.repository_owner }}/packages?package_type=container" | \
+            jq -r '.[] | .name' || echo "No org packages or jq not available"
+
+          # List user packages
+          echo "User packages:"
+          curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/users/${{ github.repository_owner }}/packages?package_type=container" | \
+            jq -r '.[] | .name' || echo "No user packages or jq not available"
       - name: Check if ${{ matrix.service }} package exists
         id: check-package
         continue-on-error: true
         run: |
-          PACKAGE_NAME="${{ github.repository }}/${{ matrix.service }}"
+          # The package name for delete-package-versions action
+          REPO_NAME=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          PACKAGE_NAME="${REPO_NAME}/${{ matrix.service }}"
           echo "Checking package: $PACKAGE_NAME"
 
-          # Use GitHub API to check if package exists
-          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+          # Try multiple API endpoints to find the package
+          # First try as organization package
+          ORG_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME/\//%2F}")
+            "https://api.github.com/orgs/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME/\//%2F}" 2>/dev/null || echo "")
 
-          if echo "$RESPONSE" | grep -q '"name"'; then
+          # Then try as user package
+          USER_RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME/\//%2F}" 2>/dev/null || echo "")
+
+          if echo "$ORG_RESPONSE" | grep -q '"name"' || echo "$USER_RESPONSE" | grep -q '"name"'; then
             echo "exists=true" >> $GITHUB_OUTPUT
+            echo "package-name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
             echo "✅ Package $PACKAGE_NAME exists"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Package $PACKAGE_NAME not found, skipping cleanup"
+            echo "⚠️ Package $PACKAGE_NAME not found in org or user packages, skipping cleanup"
+            echo "Debug - Org response: $ORG_RESPONSE"
+            echo "Debug - User response: $USER_RESPONSE"
           fi
 
       - name: Delete untagged ${{ matrix.service }} packages
@@ -296,7 +325,7 @@ jobs:
         uses: actions/delete-package-versions@v5
         continue-on-error: true
         with:
-          package-name: "${{ github.repository }}/${{ matrix.service }}"
+          package-name: "${{ steps.check-package.outputs.package-name }}"
           package-type: "container"
           delete-only-untagged-versions: true
           min-versions-to-keep: 5
@@ -307,7 +336,7 @@ jobs:
         uses: actions/delete-package-versions@v5
         continue-on-error: true
         with:
-          package-name: "${{ github.repository }}/${{ matrix.service }}"
+          package-name: "${{ steps.check-package.outputs.package-name }}"
           package-type: "container"
           min-versions-to-keep: 10
           ignore-versions: "^(latest|main|staging|production)$"
