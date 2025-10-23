@@ -2,12 +2,12 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+    branches: [main]
+    tags: ["v*"]
   workflow_run:
     workflows: ["CI"]
     types: [completed]
-    branches: [ main ]
+    branches: [main]
 
 env:
   REGISTRY: ghcr.io
@@ -78,12 +78,12 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}
           tags: |
-            type=ref,event=branch,suffix=${{ steps.build-env.outputs.env_suffix }}
-            type=ref,event=pr,suffix=${{ steps.build-env.outputs.env_suffix }}
-            type=sha,prefix=sha-,suffix=${{ steps.build-env.outputs.env_suffix }}
+            # Only create latest tag for main branch pushes
+            type=raw,value=latest${{ steps.build-env.outputs.env_suffix }},enable={{is_default_branch}}
+            # Create version tags only for actual releases
             type=semver,pattern={{version}},suffix=${{ steps.build-env.outputs.env_suffix }}
-            type=semver,pattern={{major}}.{{minor}},suffix=${{ steps.build-env.outputs.env_suffix }}
-            type=raw,value=latest${{ steps.build-env.outputs.env_suffix }}
+            # Create SHA tags only for non-main branches (for testing)
+            type=sha,prefix=sha-,suffix=${{ steps.build-env.outputs.env_suffix }},enable={{is_default_branch == false}}
 
       - name: Build and push Docker image
         id: build
