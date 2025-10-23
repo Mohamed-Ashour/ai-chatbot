@@ -125,10 +125,15 @@ REDIS_PORT=6379
 REDIS_USER=default
 REDIS_PASSWORD=your_password
 
-# Client
+# Client (Build-time only - baked into JavaScript bundle)
 NEXT_PUBLIC_API_URL=http://localhost:8000  # Docker and local both use 8000
 NEXT_PUBLIC_WS_URL=ws://localhost:8000
 ```
+
+**IMPORTANT**: Client environment variables (`NEXT_PUBLIC_*`) are baked into the JavaScript bundle at **build-time**, not runtime.
+- To change client URLs, you must rebuild the client image with `--build-arg`
+- Runtime environment variables in docker-compose won't affect the client
+- See `DEPLOYMENT.md` for production deployment with environment-specific builds
 
 ## Development Workflows
 
