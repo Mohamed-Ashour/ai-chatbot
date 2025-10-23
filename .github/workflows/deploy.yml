@@ -276,13 +276,14 @@ jobs:
                 package_type: 'container',
                 package_name: packageName,
                 username: context.repo.owner,
+                per_page: 100,
               });
 
               // Sort by created_at descending (newest first)
               const sorted = packages.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-              // Keep last 30 versions, delete older ones
-              const versionsToDelete = sorted.slice(30);
+              // Keep last 50 versions, delete older ones
+              const versionsToDelete = sorted.slice(50);
 
               console.log(`📦 Found ${packages.data.length} versions for ${service}, deleting ${versionsToDelete.length} old versions`);
 
