@@ -271,44 +271,21 @@ jobs:
       fail-fast: false
 
     steps:
-      - name: Check if ${{ matrix.service }} package exists
-        id: check-package
-        continue-on-error: true
-        run: |
-          # The package name for delete-package-versions action
-          # Extract just the repo name (without owner) for package name
-          REPO_NAME=$(echo "${{ github.repository }}" | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')
-          PACKAGE_NAME="${REPO_NAME}/${{ matrix.service }}"
-          echo "Checking package: $PACKAGE_NAME"
-
-          # Check if package exists
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME/\//%2F}")
-
-          if [[ "$RESPONSE" == "200" ]]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "package-name=$PACKAGE_NAME" >> $GITHUB_OUTPUT
-          else
-            echo "exists=false" >> $GITHUB_OUTPUT
-          fi
-
       - name: Delete untagged ${{ matrix.service }} packages
-        if: steps.check-package.outputs.exists == 'true'
         uses: actions/delete-package-versions@v5
         continue-on-error: true
         with:
-          package-name: "${{ steps.check-package.outputs.package-name }}"
+          package-name: "${{ github.event.repository.name }}/${{ matrix.service }}"
           package-type: "container"
           delete-only-untagged-versions: true
           min-versions-to-keep: 5
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cleanup old tagged ${{ matrix.service }} packages
-        if: steps.check-package.outputs.exists == 'true'
         uses: actions/delete-package-versions@v5
         continue-on-error: true
         with:
-          package-name: "${{ steps.check-package.outputs.package-name }}"
+          package-name: "${{ github.event.repository.name }}/${{ matrix.service }}"
           package-type: "container"
           min-versions-to-keep: 10
           ignore-versions: "^(latest|main|staging|production)$"
