@@ -271,8 +271,30 @@ jobs:
       fail-fast: false
 
     steps:
+      - name: Check if ${{ matrix.service }} package exists
+        id: check-package
+        continue-on-error: true
+        run: |
+          PACKAGE_NAME="${{ github.repository }}/${{ matrix.service }}"
+          echo "Checking package: $PACKAGE_NAME"
+
+          # Use GitHub API to check if package exists
+          RESPONSE=$(curl -s -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/users/${{ github.repository_owner }}/packages/container/${PACKAGE_NAME/\//%2F}")
+
+          if echo "$RESPONSE" | grep -q '"name"'; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Package $PACKAGE_NAME exists"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Package $PACKAGE_NAME not found, skipping cleanup"
+          fi
+
       - name: Delete untagged ${{ matrix.service }} packages
+        if: steps.check-package.outputs.exists == 'true'
         uses: actions/delete-package-versions@v5
+        continue-on-error: true
         with:
           package-name: "${{ github.repository }}/${{ matrix.service }}"
           package-type: "container"
@@ -281,10 +303,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Cleanup old tagged ${{ matrix.service }} packages
+        if: steps.check-package.outputs.exists == 'true'
         uses: actions/delete-package-versions@v5
+        continue-on-error: true
         with:
           package-name: "${{ github.repository }}/${{ matrix.service }}"
           package-type: "container"
-          min-versions-to-keep: 20
+          min-versions-to-keep: 10
           ignore-versions: "^(latest|main|staging|production)$"
           token: ${{ secrets.GITHUB_TOKEN }}
