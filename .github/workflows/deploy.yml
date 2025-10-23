@@ -154,8 +154,6 @@ jobs:
             IMAGE_TAG="latest"
           fi
 
-
-
           # Copy deployment files to production server
           scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:~/
           scp -o StrictHostKeyChecking=no .env-example ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }}:~/
@@ -183,30 +181,6 @@ jobs:
             # Login to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
-            # Debug: Show what images we're trying to pull
-            echo "=== Production Deployment Configuration ==="
-            echo "REGISTRY: \$REGISTRY"
-            echo "IMAGE_NAME: \$IMAGE_NAME"
-            echo "IMAGE_TAG: \$IMAGE_TAG"
-            echo "CLIENT_ENV: \$CLIENT_ENV"
-            echo "CLIENT_IMAGE_TAG: \$CLIENT_IMAGE_TAG"
-            echo ""
-            echo "=== Expected Images ==="
-            echo "Server: \$REGISTRY/\$IMAGE_NAME/server:\$IMAGE_TAG"
-            echo "Worker: \$REGISTRY/\$IMAGE_NAME/worker:\$IMAGE_TAG"
-            echo "Client: \$REGISTRY/\$IMAGE_NAME/client:\$CLIENT_IMAGE_TAG"
-            echo ""
-
-            # Try to pull images individually to see which ones fail
-            echo "=== Pulling Server Image ==="
-            docker pull \$REGISTRY/\$IMAGE_NAME/server:\$IMAGE_TAG || echo "Failed to pull server image"
-
-            echo "=== Pulling Worker Image ==="
-            docker pull \$REGISTRY/\$IMAGE_NAME/worker:\$IMAGE_TAG || echo "Failed to pull worker image"
-
-            echo "=== Pulling Client Image ==="
-            docker pull \$REGISTRY/\$IMAGE_NAME/client:\$CLIENT_IMAGE_TAG || echo "Failed to pull client image"
-
             # Pull specific version images
             docker compose -f docker-compose.prod.yml pull
 
@@ -233,7 +207,7 @@ jobs:
           curl -f https://${{ secrets.PRODUCTION_DOMAIN }} || exit 1
 
           # Run basic functionality test
-          TOKEN_RESPONSE=$(curl -f -X POST http://${{ secrets.PRODUCTION_DOMAIN }}/api/token -d "name=test-user")
+          TOKEN_RESPONSE=$(curl -f -X POST https://${{ secrets.PRODUCTION_DOMAIN }}/api/token -d "name=test-user")
           if [[ $? -ne 0 ]]; then
             echo "❌ Token endpoint failed"
             exit 1
@@ -282,42 +256,42 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-  # # Cleanup job to remove old artifacts
-  # cleanup:
-  #   runs-on: ubuntu-latest
-  #   needs: [deploy-staging, deploy-production]
-  #   if: always()
+  # Cleanup job to remove old artifacts
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, deploy-production]
+    if: always()
 
-  #   steps:
-  #     - name: Cleanup old packages
-  #       uses: actions/github-script@v6
-  #       with:
-  #         script: |
-  #           const services = ['server', 'worker', 'client'];
+    steps:
+      - name: Cleanup old packages
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const services = ['server', 'worker', 'client'];
 
-  #           for (const service of services) {
-  #             const packageName = `ai-chatbot/${service}`;
+            for (const service of services) {
+              const packageName = `ai-chatbot/${service}`;
 
-  #             const packages = await github.rest.packages.getAllPackageVersionsForPackageOwnedByUser({
-  #               package_type: 'container',
-  #               package_name: packageName,
-  #               username: context.repo.owner,
-  #             });
+              const packages = await github.rest.packages.getAllPackageVersionsForPackageOwnedByUser({
+                package_type: 'container',
+                package_name: packageName,
+                username: context.repo.owner,
+              });
 
-  #             // Sort by created_at descending (newest first)
-  #             const sorted = packages.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              // Sort by created_at descending (newest first)
+              const sorted = packages.data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-  #             // Keep last 30 versions, delete older ones
-  #             const versionsToDelete = sorted.slice(30);
+              // Keep last 30 versions, delete older ones
+              const versionsToDelete = sorted.slice(30);
 
-  #             console.log(`📦 Found ${packages.data.length} versions for ${service}, deleting ${versionsToDelete.length} old versions`);
+              console.log(`📦 Found ${packages.data.length} versions for ${service}, deleting ${versionsToDelete.length} old versions`);
 
-  #             for (const version of versionsToDelete) {
-  #               await github.rest.packages.deletePackageVersionForUser({
-  #                 package_type: 'container',
-  #                 package_name: packageName,
-  #                 username: context.repo.owner,
-  #                 package_version_id: version.id,
-  #               });
-  #             }
-  #           }
+              for (const version of versionsToDelete) {
+                await github.rest.packages.deletePackageVersionForUser({
+                  package_type: 'container',
+                  package_name: packageName,
+                  username: context.repo.owner,
+                  package_version_id: version.id,
+                });
+              }
+            }
