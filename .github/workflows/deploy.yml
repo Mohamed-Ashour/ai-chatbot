@@ -130,20 +130,28 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}
 
-      - name: Create deployment backup
+      - name: Backup current deployment state
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
-            # Create backup of current deployment
+            # Create backup directory with timestamp
             BACKUP_DIR="backup_$(date +%Y%m%d_%H%M%S)"
             mkdir -p $BACKUP_DIR
 
-            # Backup database if Redis has persistence enabled
-            docker compose exec redis redis-cli -a ${{ secrets.PRODUCTION_REDIS_PASSWORD }} BGSAVE || true
+            # Save current image tags for rollback
+            if docker compose ps > /dev/null 2>&1; then
+              docker compose images --format json > $BACKUP_DIR/deployment_backup.json
 
-            # Backup environment and compose files
-            cp -r .env docker-compose.prod.yml $BACKUP_DIR/ || true
+              # Backup current compose and env files
+              cp docker-compose.prod.yml $BACKUP_DIR/ 2>/dev/null || echo "No compose file to backup"
+              cp .env $BACKUP_DIR/ 2>/dev/null || echo "No env file to backup"
 
-            echo "Backup created in $BACKUP_DIR"
+              # Create a symlink to latest backup for easy access
+              ln -sfn $BACKUP_DIR latest_backup
+
+              echo "✅ Current deployment state backed up to $BACKUP_DIR"
+            else
+              echo "No existing deployment to backup"
+            fi
           ENDSSH
 
       - name: Deploy to production
@@ -185,7 +193,7 @@ jobs:
             # Login to GitHub Container Registry
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
-            # Pull specific version images
+            # Pull new images
             docker compose -f docker-compose.prod.yml pull
 
             # Rolling deployment with health checks
@@ -194,8 +202,13 @@ jobs:
             # Verify deployment
             timeout 300s bash -c 'until docker compose -f docker-compose.prod.yml ps | grep -q "healthy\|Up"; do sleep 5; done'
 
-            # Cleanup old images (keep last 3 versions)
-            docker images | grep ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} | sort -k2 -V | head -n -3 | awk '{print \$3}' | xargs -r docker rmi || true
+            # Cleanup images after successful deployment
+            echo "🧹 Cleaning up old images..."
+
+            # Remove dangling images (untagged images left from previous builds)
+            docker image prune -f || true
+
+            echo "✅ Deployment completed successfully"
           ENDSSH
 
       - name: Run production health checks
@@ -224,21 +237,54 @@ jobs:
         run: |
           echo "🔄 Rolling back deployment due to health check failure"
           ssh -o StrictHostKeyChecking=no ${{ secrets.PRODUCTION_USER }}@${{ secrets.PRODUCTION_HOST }} << 'ENDSSH'
-            # Find latest backup
-            LATEST_BACKUP=$(ls -t | grep "backup_" | head -n 1)
-            if [[ -n "$LATEST_BACKUP" ]]; then
-              echo "Rolling back to $LATEST_BACKUP"
+            # Check if we have a backup to rollback to
+            if [[ -L "latest_backup" && -d "$(readlink latest_backup)" ]]; then
+              BACKUP_DIR=$(readlink latest_backup)
+              echo "Found previous deployment backup in $BACKUP_DIR, attempting rollback..."
 
-              # Restore files
-              cp $LATEST_BACKUP/.env . || true
-              cp $LATEST_BACKUP/docker-compose.prod.yml . || true
+              # Extract previous tag from backup (use server container as reference)
+              PREV_TAG=$(jq -r '.[] | select(.ContainerName | contains("server")) | .Tag' $BACKUP_DIR/deployment_backup.json 2>/dev/null || echo "")
 
-              # Restart services with previous version
-              docker compose -f docker-compose.prod.yml up -d
+              if [[ -n "$PREV_TAG" ]]; then
+                echo "Rolling back to previous version: $PREV_TAG"
 
-              echo "✅ Rollback completed"
+                # Stop current failed deployment
+                docker compose -f docker-compose.prod.yml down || true
+
+                # Restore previous compose and env files
+                if [[ -f "$BACKUP_DIR/docker-compose.prod.yml" ]]; then
+                  cp $BACKUP_DIR/docker-compose.prod.yml .
+                  echo "Restored previous docker-compose.prod.yml"
+                fi
+
+                if [[ -f "$BACKUP_DIR/.env" ]]; then
+                  cp $BACKUP_DIR/.env .
+                  echo "Restored previous .env file"
+                fi
+
+                # Set environment variables to previous version (in case compose file doesn't have them)
+                export REGISTRY="${{ env.REGISTRY }}"
+                export IMAGE_NAME="${{ env.IMAGE_NAME }}"
+                export IMAGE_TAG="$PREV_TAG"
+                export CLIENT_ENV="production"
+                export CLIENT_IMAGE_TAG="$PREV_TAG-production"
+
+                # Start previous version
+                docker compose -f docker-compose.prod.yml up -d
+
+                # Wait for services to come up
+                timeout 180s bash -c 'until docker compose -f docker-compose.prod.yml ps | grep -q "healthy\|Up"; do sleep 5; done' || echo "⚠️  Warning: Services may not be fully healthy after rollback"
+
+                echo "✅ Rollback completed to version $PREV_TAG"
+              else
+                echo "❌ Could not extract previous image information from backup"
+                echo "Attempting emergency restart..."
+                docker compose -f docker-compose.prod.yml restart
+              fi
             else
-              echo "❌ No backup found for rollback"
+              echo "❌ No deployment backup found"
+              echo "Attempting emergency restart of current deployment..."
+              docker compose -f docker-compose.prod.yml restart
             fi
           ENDSSH
 
