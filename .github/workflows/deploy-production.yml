@@ -1,21 +1,9 @@
-name: Deploy
+name: Deploy to Production
 on:
-  workflow_run:
-    workflows: ["Build and Push Docker Images"]
-    types: [completed]
-    branches: [main]
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Deployment environment"
-        required: true
-        default: "staging"
-        type: choice
-        options:
-          - staging
-          - production
       force_deploy:
         description: "Force deployment (skip health checks)"
         required: false
@@ -31,93 +19,8 @@ permissions:
   packages: write
 
 jobs:
-  deploy-staging:
+  deploy:
     runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
-
-    environment:
-      name: staging
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.STAGING_SSH_PRIVATE_KEY }}
-
-      - name: Deploy to staging server
-        id: deploy
-        run: |
-          # Copy deployment files to staging server
-          scp -o StrictHostKeyChecking=no docker-compose.prod.yml ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:~/
-          scp -o StrictHostKeyChecking=no .env-example ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }}:~/
-
-          # Deploy on staging server
-          ssh -o StrictHostKeyChecking=no ${{ secrets.STAGING_USER }}@${{ secrets.STAGING_HOST }} << 'ENDSSH'
-            # Set environment variables
-            export REGISTRY="${{ env.REGISTRY }}"
-            export IMAGE_NAME="${{ env.IMAGE_NAME }}"
-            export IMAGE_TAG="latest"
-            export CLIENT_ENV="staging"
-            export CLIENT_IMAGE_TAG="latest-staging"
-
-            # Create staging environment file from template
-            cp .env-example .env
-
-            # Set staging-specific values
-            sed -i "s|GROQ_API_KEY=.*|GROQ_API_KEY=${{ secrets.STAGING_GROQ_API_KEY }}|" .env
-            sed -i "s|REDIS_PASSWORD=.*|REDIS_PASSWORD=${{ secrets.STAGING_REDIS_PASSWORD }}|" .env
-            sed -i "s|CORS_ORIGINS=.*|CORS_ORIGINS=http://${{ secrets.STAGING_HOST }}:3000,http://client:3000|" .env
-
-            # Login to GitHub Container Registry
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
-
-            # Pull latest images
-            docker compose -f docker-compose.prod.yml pull
-
-            # Deploy with zero-downtime
-            docker compose -f docker-compose.prod.yml up -d
-
-            # Wait for services to be healthy
-            timeout 300s bash -c 'until docker compose -f docker-compose.prod.yml ps | grep -q "healthy\|Up"; do sleep 5; done'
-
-            # Cleanup old images
-            docker image prune -f
-          ENDSSH
-
-      - name: Run health checks
-        run: |
-          # Wait for services to be ready
-          sleep 60
-
-          # Check API health
-          curl -f http://${{ secrets.STAGING_HOST }}:8000/health || exit 1
-
-          # Check client health
-          curl -f http://${{ secrets.STAGING_HOST }}:3000 || exit 1
-
-          # Test token endpoint
-          curl -f -X POST http://${{ secrets.STAGING_HOST }}:8000/token -d "name=test-user" || exit 1
-
-      - name: Notify deployment success
-        uses: 8398a7/action-slack@v3
-        if: success()
-        with:
-          status: success
-          text: "✅ Staging deployment successful! URL: http://${{ secrets.STAGING_HOST }}:3000"
-        env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  deploy-production:
-    runs-on: ubuntu-latest
-    if: |
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production')
-
     environment:
       name: production
 
@@ -204,8 +107,6 @@ jobs:
 
             # Cleanup images after successful deployment
             echo "🧹 Cleaning up old images..."
-
-            # Remove dangling images (untagged images left from previous builds)
             docker image prune -f || true
 
             echo "✅ Deployment completed successfully"
@@ -262,7 +163,7 @@ jobs:
                   echo "Restored previous .env file"
                 fi
 
-                # Set environment variables to previous version (in case compose file doesn't have them)
+                # Set environment variables to previous version
                 export REGISTRY="${{ env.REGISTRY }}"
                 export IMAGE_NAME="${{ env.IMAGE_NAME }}"
                 export IMAGE_TAG="$PREV_TAG"
@@ -309,7 +210,7 @@ jobs:
   # Cleanup job to remove old artifacts
   cleanup:
     runs-on: ubuntu-latest
-    needs: [deploy-staging, deploy-production]
+    needs: [deploy]
     if: always()
     strategy:
       matrix:
