@@ -92,8 +92,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha,scope=${{ matrix.service }}
+            type=gha,scope=${{ matrix.service }}-deps
+          cache-to: |
+            type=gha,mode=max,scope=${{ matrix.service }}-${{ matrix.environment }}
+            type=gha,mode=max,scope=${{ matrix.service }}-deps
           build-args: |
             NEXT_PUBLIC_API_URL=${{ matrix.service == 'client' && steps.build-env.outputs.api_url || '' }}
             NEXT_PUBLIC_WS_URL=${{ matrix.service == 'client' && steps.build-env.outputs.ws_url || '' }}
