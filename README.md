@@ -131,21 +131,20 @@ docker compose up -d --build
 ### Docker Management Commands
 
 ```bash
-# Show service status and logs
-./docker-start.sh status
-./docker-start.sh logs
+# Development commands
+./docker-start.sh              # Start all services
+./docker-start.sh dev          # Development mode with hot reload
+./docker-start.sh status       # Show service status and logs
+./docker-start.sh logs         # View service logs
+./docker-start.sh stop         # Stop all services
+./docker-start.sh clean        # Clean up containers and volumes
 
-# Rebuild services from scratch
-./docker-start.sh rebuild
+# Production deployment
+docker compose -f docker-compose.prod.yml up -d --wait
 
-# Stop all services
-./docker-start.sh stop
-
-# Development mode (with hot reload)
-./docker-start.sh dev
-
-# Clean up everything
-./docker-start.sh clean
+# Enable optional services
+docker compose -f docker-compose.prod.yml --profile nginx up -d
+docker compose -f docker-compose.prod.yml --profile monitoring up -d
 ```
 
 ### Docker Architecture
@@ -241,122 +240,244 @@ cd client
 
 ## 🛠️ Configuration
 
+### Environment Strategy
+- **Development**: Local `.env` files for each service
+- **Production**: Environment variables via CI/CD secrets
+- **Client URLs**: Build-time configuration (cannot change at runtime)
+
 ### Environment Files
-- `.env`: Root environment variables (Redis, API keys, CORS)
-- `server/.env`: Server-specific config (if needed)
-- `worker/.env`: Worker-specific config (if needed)
-- `client/.env.local`: Client-specific config (API URLs)
+```bash
+.env                    # Root environment (Redis, API keys, CORS)
+server/.env            # Server-specific config (optional)
+worker/.env            # Worker-specific config (optional)
+client/.env.local      # Client-specific config (API URLs)
+```
 
-### Root Configuration
+### Production Configuration
 
-Edit `.env`:
+#### Required Runtime Secrets
 ```env
-# Groq API Configuration
+# AI Model Integration
 GROQ_API_KEY=your_groq_api_key
 
-# Redis Configuration
-REDIS_PASSWORD=your_redis_password
+# Database Authentication
+REDIS_PASSWORD=your_secure_redis_password
 REDIS_USER=default
-REDIS_HOST=redis
-REDIS_PORT=6379
 
-# CORS Configuration
+# Security Configuration
+CORS_ORIGINS=https://yourdomain.com,http://client:3000
+TOKEN_EXPIRY_HOURS=1
+
+# Optional: Monitoring
+GRAFANA_ADMIN_PASSWORD=secure_password
+```
+
+#### Client Build-Time Variables
+```env
+# These are baked into the client image at build time
+NEXT_PUBLIC_API_URL=https://api.yourdomain.com
+NEXT_PUBLIC_WS_URL=wss://api.yourdomain.com
+```
+
+### Development Configuration
+
+#### Local Development Setup
+```env
+# .env (root)
+GROQ_API_KEY=your_groq_api_key
+REDIS_PASSWORD=dev_password
 CORS_ORIGINS=http://localhost:3000,http://client:3000
 
-# Client Configuration
+# client/.env.local
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_WS_URL=ws://localhost:8000
 ```
 
-### Client Configuration (Local Development)
-
-Edit `client/.env.local`:
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_WS_URL=ws://localhost:8000
-```
-
-### Key Configuration
-- **Session Duration**: 1 hour (configurable via TOKEN_EXPIRY_HOURS)
-- **Chat Context**: Last 10 messages sent to AI
+### Key Settings
+- **Session Duration**: 1 hour (configurable via `TOKEN_EXPIRY_HOURS`)
+- **Chat Context**: Last 10 messages sent to AI model
 - **Auto-Reconnect**: 3-second delay with exponential backoff
-- **CORS**: Configured for development and production origins
+- **Resource Limits**: Optimized for production workloads
+- **Health Checks**: 30-second intervals with 3 retries
+
+## 🔄 CI/CD Workflows
+
+### Automated Pipeline Overview
+
+The project includes three main GitHub Actions workflows:
+
+#### 1. Build and Push (`build-and-push.yml`)
+**Triggers**: Push to main (after CI success) or version tags (`v*`)
+- 🏗️ **Multi-architecture builds** (AMD64 + ARM64)
+- 🔒 **Security scanning** with SBOM generation
+- 📦 **Environment-specific client images**
+- 🧹 **Build cache optimization**
+
+#### 2. Deploy to Staging (`deploy-staging.yml`)
+**Triggers**: After successful image build on main branch
+- 🚀 **Automatic deployment** to staging environment
+- 🏥 **Health checks** for all services
+- 📢 **Slack notifications** on success/failure
+- 🧹 **Container cleanup** after deployment
+
+#### 3. Deploy to Production (`deploy-production.yml`)
+**Triggers**: Version tag push (`v*`) or manual dispatch
+- 💾 **Automatic backup** of current deployment
+- 🔄 **Zero-downtime rolling deployment**
+- 🏥 **Comprehensive health checks**
+- 📦 **Automatic rollback** on failure
+- 🔒 **Production-grade security**
+
+### Workflow Features
+
+#### Image Tagging Strategy
+```bash
+# Server/Worker (environment-agnostic)
+ghcr.io/org/repo/server:latest
+ghcr.io/org/repo/server:v1.0.0
+
+# Client (environment-specific)
+ghcr.io/org/repo/client:latest-staging
+ghcr.io/org/repo/client:v1.0.0-production
+```
+
+#### Deployment Safety
+- **Staging**: Automatic deployment with health checks
+- **Production**: Backup → Deploy → Verify → Rollback on failure
+- **Manual Override**: `force_deploy` input to skip health checks
 
 ## 🐞 Troubleshooting
 
+### � CI/CeD Issues
+
+#### Deployment Failures
+```bash
+# Check workflow logs in GitHub Actions
+# Common issues:
+- Missing required secrets (GROQ_API_KEY, SSH keys)
+- Health check timeouts (services not ready)
+- Image pull failures (registry authentication)
+
+# Manual deployment verification
+ssh user@server 'docker compose -f docker-compose.prod.yml ps'
+```
+
+#### Image Build Problems
+```bash
+# Check build logs in GitHub Actions
+# Common issues:
+- Multi-architecture build failures
+- Client environment variable configuration
+- Registry authentication issues
+
+# Local build testing
+docker buildx build --platform linux/amd64,linux/arm64 ./server
+```
+
+#### Rollback Issues
+```bash
+# Production rollback is automatic on health check failure
+# Manual rollback if needed:
+ssh user@production-server << 'EOF'
+  cd latest_backup
+  docker compose -f docker-compose.prod.yml up -d
+EOF
+```
+
 ### 🐳 Docker Issues
 
-#### Service Won't Start
+#### Service Health Checks
 ```bash
-# Check service logs
+# Check service health status
+docker compose ps
 docker compose logs [service-name]
 
-# Check service status
-docker compose ps
-
-# Restart specific service
-docker compose restart [service-name]
+# Test individual health endpoints
+curl -f http://localhost:8000/health  # Server
+curl -f http://localhost:3000         # Client
+docker compose exec redis redis-cli -a $REDIS_PASSWORD ping  # Redis
 ```
 
-#### Environment Variables
+#### Environment Configuration
 ```bash
-# Verify environment file exists
-ls -la .env
+# Verify environment files
+ls -la .env*
 
-# Check loaded environment in container
-docker compose exec server printenv | grep API
+# Check loaded environment in containers
+docker compose exec server printenv | grep -E "(REDIS|GROQ|CORS)"
+docker compose exec worker printenv | grep GROQ_API_KEY
 ```
 
-#### Port Conflicts
+#### Resource Issues
 ```bash
-# Check what's using ports
-lsof -i :3000
-lsof -i :8000
-lsof -i :6379
+# Check resource usage
+docker stats
 
-# Stop conflicting services
-./docker-start.sh stop
+# Adjust resource limits in docker-compose.prod.yml
+services:
+  worker:
+    deploy:
+      resources:
+        limits:
+          memory: 2G  # Increase if needed
+          cpus: "2.0"
 ```
 
-#### Redis Connection Issues
+#### Network Connectivity
 ```bash
-# Test Redis connectivity
-docker compose exec redis redis-cli ping
+# Test inter-service communication
+docker compose exec client curl http://server:8000/health
+docker compose exec server redis-cli -h redis -a $REDIS_PASSWORD ping
 
-# Check Redis logs
-docker compose logs redis
+# Check network configuration
+docker network ls
+docker network inspect fullstack-ai-chatbot_chatbot-network-prod
 ```
 
-#### Build Issues
+### 📦 Local Development Issues
+
+#### Client URL Problems
 ```bash
-# Clear Docker cache and rebuild
-./docker-start.sh clean
-docker system prune -a
-./docker-start.sh rebuild
+# Client URLs are build-time only - cannot change at runtime
+# For local development, ensure client/.env.local has:
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_WS_URL=ws://localhost:8000
+
+# For production, URLs are baked into the image during CI/CD
 ```
 
-### 📦 Local Setup Issues
-
-#### CORS Issues
-- ✅ **Fixed**: CORS is now properly configured for development
-- 🔧 The server allows all origins in development mode
-- 🔒 Production mode has restrictive CORS settings
-
-#### Connection Issues
+#### Service Communication
 ```bash
-# Test server connection
+# Internal Docker network communication
+docker compose exec client curl http://server:8000/health
+
+# External access (from host)
 curl http://localhost:8000/health
+curl http://localhost:3000
 
-# Test token generation
-curl -X POST -F "name=TestUser" http://localhost:8000/token
+# WebSocket testing
+wscat -c ws://localhost:8000/chat?token=your_token
 ```
 
 #### Common Solutions
-- **Server won't start**: Check Redis connection and credentials
-- **Client can't connect**: Ensure server is running first
-- **WebSocket errors**: Verify token is valid and not expired
-- **Build errors**: Run `npm install` in client directory
-- **API Key errors**: Check GROQ_API_KEY in environment file
+- **Server won't start**: Check Redis connection and GROQ_API_KEY
+- **Client build fails**: Verify Node.js version (18+) and run `npm install`
+- **WebSocket errors**: Ensure token is valid and not expired
+- **CORS errors**: Check CORS_ORIGINS includes your client URL
+- **Redis connection**: Verify REDIS_PASSWORD matches in all services
+- **AI responses fail**: Confirm GROQ_API_KEY is valid and has credits
+
+#### Performance Optimization
+```bash
+# Enable Docker BuildKit for faster builds
+export DOCKER_BUILDKIT=1
+
+# Use development mode for hot reload
+./docker-start.sh dev
+
+# Monitor resource usage
+docker stats --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}"
+```
 
 ## 🧪 Testing
 
@@ -445,147 +566,196 @@ npm run dev
 
 ## 📚 Technologies Used
 
-### Backend (Server)
-- **FastAPI 0.115.0** - Modern Python web framework with auto docs
-- **Redis 5.2.0** - In-memory data store for sessions and streaming
+### Backend Stack
+- **FastAPI 0.115.0** - Modern Python web framework with automatic OpenAPI docs
+- **Uvicorn** - ASGI server with hot reload support
 - **WebSockets 13.1** - Real-time bidirectional communication
+- **Redis 5.2.0** - In-memory data store for sessions and message streaming
 - **Pydantic 2.10.1** - Data validation and serialization
-- **Uvicorn** - High-performance ASGI web server
+- **Python-multipart** - Form data handling for token generation
 
-### AI Worker
-- **Groq** - Fast AI model for intelligent responses
-- **Redis Streams** - Message queue processing
+### AI Processing
+- **Groq 0.32.0** - AI model integration for GPT responses
+- **Redis Streams** - Async message queue processing
+- **Python-dotenv** - Environment variable management
 - **Asyncio** - Asynchronous programming for performance
-- **Context Management** - Chat history for better responses
 
-### Frontend (Client)
+### Frontend Stack
 - **Next.js 15.5.4** - React framework with App Router and Turbopack
 - **React 19.1.0** - Latest React with concurrent features
 - **TypeScript 5** - Type-safe development
 - **Tailwind CSS 4** - Utility-first styling with custom animations
 - **Framer Motion 12.23.21** - Smooth animations and transitions
+
+### UI Libraries
 - **React Hot Toast** - Beautiful notification system
-- **React Markdown 10.1.0** - Markdown rendering with syntax highlighting
+- **React Markdown 10.1.0** - Markdown rendering with GFM support
+- **Rehype Highlight** - Syntax highlighting for code blocks
 - **Lucide React** - Modern icon library
+
+### DevOps & Infrastructure
+- **Docker & Docker Compose** - Containerization and orchestration
+- **GitHub Actions** - CI/CD pipeline automation
+- **GitHub Container Registry** - Multi-architecture image storage
+- **Redis Stack Server 7.4.0** - Production-ready Redis with modules
+- **Nginx Alpine** - Lightweight reverse proxy (optional)
+- **Prometheus & Grafana** - Monitoring and metrics (optional)
+
+### Security & Quality
+- **SBOM Generation** - Software Bill of Materials for security
+- **Multi-architecture builds** - AMD64 and ARM64 support
+- **Health checks** - Comprehensive service monitoring
+- **Automatic rollback** - Production deployment safety
+- **Resource limits** - Container resource management
 
 ## 🚀 Deployment
 
-### 🐳 Docker Deployment (Recommended)
+### 🤖 Automated CI/CD Pipeline
 
-#### Quick Production Deployment
+**Complete automation from code to production!** The project includes a comprehensive CI/CD pipeline with GitHub Actions:
 
-**Now automated with CI/CD! See `QUICK_SETUP.md` for the new deployment process.**
-
+#### Deployment Flow
 ```bash
-# Automated deployment via CI/CD:
-# 1. Push to main → deploys to staging
+# 1. Push to main → Automatic staging deployment
 git push origin main
 
-# 2. Create tag → deploys to production
+# 2. Create version tag → Automatic production deployment
 git tag v1.0.0
 git push origin v1.0.0
-
-# Manual deployment (if needed):
-docker compose -f docker-compose.prod.yml up -d
 ```
 
-#### Docker Compose Production
+#### Pipeline Features
+- ✅ **Multi-architecture builds** (AMD64 + ARM64)
+- 🔒 **Security scanning** with SBOM generation
+- 🏗️ **Environment-specific client builds** (staging vs production URLs)
+- 🔄 **Zero-downtime deployments** with health checks
+- 📦 **Automatic rollback** on production failures
+- 🧹 **Image cleanup** to manage registry storage
+- 📢 **Slack notifications** for deployment status
 
-The deployment script creates an optimized `docker-compose.prod.yml` with:
-- **Resource limits** for each service
-- **Health checks** for all containers
-- **Restart policies** for high availability
-- **Multi-replica scaling** for server and worker
-- **Production-ready** Redis configuration
+#### Container Registry Strategy
+- **Server/Worker**: Environment-agnostic images (`latest`, `v1.0.0`)
+- **Client**: Environment-specific builds (`latest-staging`, `v1.0.0-production`)
+- **Registry**: GitHub Container Registry (`ghcr.io`)
+
+### 🐳 Production Docker Setup
+
+#### Optimized Production Configuration
+
+The `docker-compose.prod.yml` provides enterprise-ready deployment:
 
 ```yaml
-services:
-  server:
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          memory: 1gb
-          cpus: '1.0'
+# Resource-optimized services
+server:
+  deploy:
+    resources:
+      limits: { memory: 512M, cpus: "0.5" }
+    replicas: 1
 
-  worker:
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          memory: 1gb
-          cpus: '1.0'
+worker:
+  deploy:
+    resources:
+      limits: { memory: 1G, cpus: "1.0" }
+    replicas: 1
+
+# Health checks for all services
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
 ```
 
-#### Container Registry
+#### Optional Production Services
+```bash
+# Enable Nginx reverse proxy
+docker compose -f docker-compose.prod.yml --profile nginx up -d
+
+# Enable monitoring stack (Prometheus + Grafana)
+docker compose -f docker-compose.prod.yml --profile monitoring up -d
+```
+
+### 🔧 Manual Deployment (Advanced)
+
+#### Required GitHub Secrets
+For automated deployments, configure these secrets in your repository:
 
 ```bash
-# Images are automatically built and pushed via CI/CD
-# to GitHub Container Registry (ghcr.io)
-# See .github/workflows/ for automated build process
+# Staging Environment
+STAGING_SSH_PRIVATE_KEY, STAGING_USER, STAGING_HOST
+STAGING_GROQ_API_KEY, STAGING_REDIS_PASSWORD
+STAGING_API_URL, STAGING_WS_URL
+
+# Production Environment
+PRODUCTION_SSH_PRIVATE_KEY, PRODUCTION_USER, PRODUCTION_HOST
+PRODUCTION_GROQ_API_KEY, PRODUCTION_REDIS_PASSWORD
+PRODUCTION_API_URL, PRODUCTION_WS_URL, PRODUCTION_DOMAIN
+
+# Optional: Slack notifications
+SLACK_WEBHOOK_URL
 ```
 
-### 📦 Manual Deployment
-
-#### Server
+#### Manual Production Deployment
 ```bash
-# Production environment
-export APP_ENV=production
-export REDIS_URL=your_production_redis
+# Set environment variables
+export CLIENT_ENV=production
+export REGISTRY=ghcr.io
+export IMAGE_NAME=your-org/fullstack-ai-chatbot
+export IMAGE_TAG=v1.0.0
 
-# Use Gunicorn + Uvicorn for production
-gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
+# Deploy with specific version
+docker compose -f docker-compose.prod.yml up -d --wait
+
+# Or deploy staging
+export CLIENT_ENV=staging
+docker compose -f docker-compose.prod.yml up -d --wait
 ```
 
-#### Worker
-```bash
-# Ensure Groq API key is set
-export GROQ_API_KEY=your_production_key
+#### Deployment Features
+- 🔄 **Automatic rollback** on production health check failures
+- 💾 **Deployment backups** with timestamp-based restore points
+- 🏥 **Comprehensive health checks** for all services
+- 🔒 **Secure secrets management** via environment variables
+- 📊 **Resource monitoring** with optional Prometheus/Grafana stack
 
-# Run worker with process manager (PM2, systemd, etc.)
-python main.py
-```
+### 🌐 Cloud Platform Support
 
-#### Client
-```bash
-# Build optimized bundle
-npm run build
+#### Container Orchestration
+- **Docker Swarm**: Use `docker-compose.prod.yml` directly
+- **Kubernetes**: Convert with Kompose or use Helm charts
+- **AWS ECS/Fargate**: Deploy with task definitions
+- **Azure Container Instances**: Use container groups
+- **Google Cloud Run**: Deploy individual services
 
-# Deploy to Vercel/Netlify/etc.
-# Update API URLs for production
-```
-
-### 🌐 Cloud Deployment Options
-
-#### Docker Swarm
-```bash
-# Initialize swarm
-docker swarm init
-
-# Deploy stack
-docker stack deploy -c docker-compose.prod.yml chatbot
-```
-
-#### Kubernetes
-```bash
-# Convert docker-compose to k8s (using kompose)
-kompose convert -f docker-compose.prod.yml
-kubectl apply -f .
-```
-
-#### AWS ECS / Azure Container Instances
-- Use the production Docker images
-- Configure environment variables
-- Set up load balancer for multiple replicas
+#### Platform-as-a-Service
+- **Railway**: Connect GitHub repo for auto-deployment
+- **Render**: Use Docker deployment with health checks
+- **DigitalOcean App Platform**: Multi-service app configuration
 
 ## 🔄 Recent Updates
 
+### 🚀 Production-Ready CI/CD Pipeline
+- ✅ **Automated deployments** with GitHub Actions
+- 🏗️ **Multi-architecture builds** (AMD64 + ARM64)
+- 🔒 **Security scanning** with SBOM generation
+- 🔄 **Zero-downtime deployments** with health checks
+- 📦 **Automatic rollback** on production failures
+- 🧹 **Container registry cleanup** and optimization
+
+### 🐳 Enhanced Docker Infrastructure
+- 🏥 **Comprehensive health checks** for all services
+- 📊 **Resource limits** and performance optimization
+- 🔧 **Optional services** (Nginx proxy, monitoring stack)
+- 🌐 **Production networking** with custom subnets
+- 💾 **Persistent volumes** for data retention
+
+### 🎨 Application Features
 - ✨ **Session Persistence** - Automatic login restoration
 - 📋 **Chat History** - Complete conversation storage
 - 📝 **Markdown Support** - Rich text with syntax highlighting
 - 🔐 **Token Security** - Proper expiration handling
-- 🎨 **UI Polish** - Loading states and animations
-- 🐛 **Bug Fixes** - UUID generation, scrollbar behavior
+- 🎭 **UI Polish** - Loading states and smooth animations
+- 🔄 **Auto-reconnection** - Seamless network recovery
 
 ## 📜 Documentation
 
