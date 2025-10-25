@@ -206,34 +206,3 @@ jobs:
           text: "❌ Production deployment failed! Check logs and rollback initiated."
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
-  # Cleanup job to remove old artifacts
-  cleanup:
-    runs-on: ubuntu-latest
-    needs: [deploy]
-    if: always()
-    strategy:
-      matrix:
-        service: [server, worker, client]
-      fail-fast: false
-
-    steps:
-      - name: Delete untagged ${{ matrix.service }} packages
-        uses: actions/delete-package-versions@v5
-        continue-on-error: true
-        with:
-          package-name: "${{ github.event.repository.name }}/${{ matrix.service }}"
-          package-type: "container"
-          delete-only-untagged-versions: true
-          min-versions-to-keep: 5
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Cleanup old tagged ${{ matrix.service }} packages
-        uses: actions/delete-package-versions@v5
-        continue-on-error: true
-        with:
-          package-name: "${{ github.event.repository.name }}/${{ matrix.service }}"
-          package-type: "container"
-          min-versions-to-keep: 10
-          ignore-versions: "^(latest|main|staging|production)$"
-          token: ${{ secrets.GITHUB_TOKEN }}
