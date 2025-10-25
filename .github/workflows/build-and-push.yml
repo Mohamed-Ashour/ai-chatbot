@@ -124,19 +124,3 @@ jobs:
           name: ${{ matrix.service }}${{ steps.build-env.outputs.env_suffix }}-sbom
           path: ${{ matrix.service }}-sbom.spdx.json
 
-  # Summary job that ensures all builds completed successfully
-  build-complete:
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: always()
-
-    steps:
-      - name: Check build results
-        run: |
-          if [ "${{ needs.build-and-push.result }}" != "success" ]; then
-            echo "❌ Build failed or was cancelled"
-            exit 1
-          fi
-          echo "✅ All builds completed successfully"
-
-
