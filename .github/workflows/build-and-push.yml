@@ -93,11 +93,11 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: |
-            type=gha,scope=${{ matrix.service }}
-            type=gha,scope=${{ matrix.service }}-deps
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:cache
+            type=gha
           cache-to: |
-            type=gha,mode=max,scope=${{ matrix.service }}-${{ matrix.environment }}
-            type=gha,mode=max,scope=${{ matrix.service }}-deps
+            type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.service }}:cache,mode=max
+            type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_API_URL=${{ matrix.service == 'client' && steps.build-env.outputs.api_url || '' }}
             NEXT_PUBLIC_WS_URL=${{ matrix.service == 'client' && steps.build-env.outputs.ws_url || '' }}
